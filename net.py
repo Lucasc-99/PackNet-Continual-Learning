@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from sequoia.settings import Method, Setting
+from torch.utils.data import DataLoader
 from sequoia.settings.passive.cl import TaskIncrementalSetting
 from sequoia.settings.passive.cl.objects import (
     Actions,
@@ -14,7 +15,6 @@ from sequoia.settings.passive.cl.objects import (
     Results,
     Rewards,
 )
-from torch.utils.data import DataLoader
 
 
 class MnistClassifier(nn.Module):
@@ -56,5 +56,4 @@ class SimpleMNISTClassifierMethod(Method, target_setting=TaskIncrementalSetting)
 
     def get_actions(self, observations, observation_space):
         return self.model(observations)  # Do I need to reshape observations?
-
 
