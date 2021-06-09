@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm
+import math
 
 
 class MnistClassifier(nn.Module):
@@ -20,21 +22,3 @@ class MnistClassifier(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-class PackNet(nn.Module):
-
-    def __init__(self, model):
-        super(PackNet, self).__init__()
-        self.model = model
-        self.masks = torch.Tensor()
-
-    def forward(self, x, task_id):
-        return self.model(x)
-
-    # Add more options for this
-    def prune_weights(self, ratio):
-        for name, layer in self.model.named_parameters():
-            print(name, layer)
-        pass
-
-    def next_task(self):
-        pass
