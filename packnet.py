@@ -24,7 +24,7 @@ class PackNet(nn.Module):
                 cutoff = torch.quantile(input=torch.abs(torch.flatten(param_layer)), q=q)
 
                 # Zero out least important weights
-                param_layer.detach().apply_(lambda x: x * (abs(x) < cutoff))
+                param_layer.detach().apply_(lambda x: x * (abs(x) >= cutoff))
 
                 # Add most important weights to mask
                 for i, val in enumerate(torch.flatten(param_layer)):
