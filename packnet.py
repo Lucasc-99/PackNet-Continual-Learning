@@ -9,6 +9,9 @@ class PackNet:
         self.q = prune_quantile
         self.masks = []
 
+    def mask_grad(self, task_id):
+        pass
+
     # Zero out percentage q of weights and create a mask
     def prune_weights(self):
         mask = []
