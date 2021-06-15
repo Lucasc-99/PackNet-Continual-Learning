@@ -21,6 +21,20 @@ class MnistClassifier(nn.Module):
         x = F.relu(self.dense2(x))
         return F.log_softmax(x, dim=1)
 
+class SmallerClassifier(nn.Module):
+
+    def __init__(self, input_channels=1):
+        super(SmallerClassifier, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=input_channels, out_channels=3, kernel_size=5)
+        self.dense1 = nn.Linear(in_features=1728, out_features=10)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = torch.flatten(x, 1)
+        x = F.relu(self.dense1(x))
+        return F.log_softmax(x, dim=1)
+
 
 class LightweightEncoder(nn.Module):
 
@@ -35,6 +49,6 @@ class LightweightEncoder(nn.Module):
         :param x: 1x28x28 tensor representing MNIST image
         :return: encoded image, 15 channels
         """
-        x = F.max_pool2d(F.relu(self.conv1(x)))
-        x = F.max_pool2d(F.relu(self.conv2(x)))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
         return x

@@ -1,6 +1,7 @@
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
+import tqdm
 
 
 class PackNet:
@@ -24,6 +25,7 @@ class PackNet:
 
         all_prunable_params = torch.tensor([])
         mask_idx = 0
+
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
                 flat = param_layer.view(-1)
@@ -48,34 +50,36 @@ class PackNet:
         # Prune weights and create mask
 
         mask_idx = 0
-        for name, param_layer in self.model.named_parameters():
+        with torch.no_grad():
+            for name, param_layer in self.model.named_parameters():
 
-            if 'bias' not in name:
-                flat = param_layer.view(-1)
+                if 'bias' not in name:
+                    flat = param_layer.view(-1)
 
-                # get prunable weights for this layer
-                prev_mask = set()
-                for temp in self.masks:
-                    if len(temp) > mask_idx:
-                        prev_mask |= temp[mask_idx]
+                    # get prunable weights for this layer
+                    prev_mask = set()
+                    for temp in self.masks:
+                        if len(temp) > mask_idx:
+                            prev_mask |= temp[mask_idx]
 
-                # loop over layer parameters and prune
-                curr_mask = set()
-                with torch.no_grad():
+                    # loop over layer parameters and prune
+                    curr_mask = set()
+                    with torch.no_grad():
 
-                    for i, v in enumerate(flat):
-                        if i not in prev_mask:
-                            if torch.abs(v) >= cutoff:
-                                curr_mask.add(i)
-                            else:
-                                v *= 0.0
-                                weights_pruned += 1
+                        # Bottleneck here on dense layers
+                        for i, v in enumerate(flat):
+                            if i not in prev_mask:
+                                if torch.abs(v) >= cutoff:
+                                    curr_mask.add(i)
+                                else:
+                                    v *= 0.0
+                                    weights_pruned += 1
 
-                mask.append(curr_mask)
-                mask_idx += 1
+                    mask.append(curr_mask)
+                    mask_idx += 1
 
-        self.masks.append(mask)
-        return weights_pruned
+            self.masks.append(mask)
+            return weights_pruned
 
     def next_task(self):
         self.current_task += 1
@@ -87,21 +91,22 @@ class PackNet:
         :return: None
         """
         assert len(self.masks) > self.current_task
-        with torch.no_grad():
-            mask_idx = 0
-            for name, param_layer in self.model.named_parameters():
-                if 'bias' not in name:
-                    # get weights to be fine-tuned
-                    prev_mask = self.masks[self.current_task][mask_idx]
-    
-                    # zero grad except for weights to fine-tune
-                    flat = param_layer.view(-1)
 
-                    for i, v in enumerate(flat):
-                        if i not in prev_mask:
-                            v.grad *= 0.0
-    
-                    mask_idx += 1
+        mask_idx = 0
+        for name, param_layer in self.model.named_parameters():
+            if 'bias' not in name:
+                # get weights to be fine-tuned
+                prev_mask = self.masks[self.current_task][mask_idx]
+
+                # zero grad except for weights to fine-tune
+                flat = param_layer.view(-1)
+
+                # Bottleneck here
+                for i, v in enumerate(flat):
+                    if i not in prev_mask and v.grad:
+                        v.grad.zero_()
+
+                mask_idx += 1
 
     def get_fine_tune_params(self):
         """
@@ -111,8 +116,8 @@ class PackNet:
         # Ideally should modify self.model.parameters() iterable in-place,
         # keeping only the parameters that will be fine-tuned and passed to the optimizer
 
-        # This will save the computationally taxing requirement of running
-        # fine_tune_mask on every batch during fine tuning
+        # This will save compute for running
+        # fine_tune_mask on every batch during fine tuning.
         # is this even possible?
 
 

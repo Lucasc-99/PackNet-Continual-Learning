@@ -63,12 +63,8 @@ for _ in range(N_FINE_TUNE_EPOCH):
         test_model.zero_grad()
         l = loss(test_model(img), cl)
         l.backward()
-
         p_net.fine_tune_mask()
         sgd_optim.step()
-
-
-print("testing after fine-tune")
 
 t1 = 0
 for img, cl in tqdm(testloaders[0]):
