@@ -22,3 +22,19 @@ class MnistClassifier(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
+class LightweightEncoder(nn.Module):
+
+    def __init__(self):
+        super(LightweightEncoder, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=10, kernel_size=5)
+        self.conv2 = nn.Conv2d(in_channels=10, out_channels=15, kernel_size=5)
+
+    def forward(self, x):
+        """
+        :param x: 1x28x28 tensor representing MNIST image
+        :return: encoded image, 15 channels
+        """
+        x = F.max_pool2d(F.relu(self.conv1(x)))
+        x = F.max_pool2d(F.relu(self.conv2(x)))
+        return x

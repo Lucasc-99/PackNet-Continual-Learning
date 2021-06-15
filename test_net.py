@@ -1,18 +1,37 @@
 """
-Tests for net.py and packnet.py
+Tests for nets.py and packnet.py
 """
-from net import MnistClassifier
+from torch import nn
+
+from nets import MnistClassifier, LightweightEncoder
 from packnet import PackNet
+import torch
+from torch.autograd import Variable
 
-m = MnistClassifier()
-p_net = PackNet(model=m)
+test_model = LightweightEncoder()
+p_net = PackNet(model=test_model)
 
 
-def test_prune_weights():
-    p_net.prune_weights()
+def test_prune():
+    # w_1 = p_net.prune(q=.01)
+    p_net.current_task = 1
+    w_2 = p_net.prune(q=.5)
+    w_3 = p_net.prune(q=.5)
+    assert w_2 != 0
+    # assert w_1 != 0
+    assert w_3 == 0
 
 def test_mask_grad():
-    pass
+
+    p_net.masks = [[{0, 1, 2, 3, 4}]]
+
+    layer_1 = list(test_model.parameters())
+    conv1_params = torch.flatten(layer_1[0])
+    conv1_params[0].grad = Variable(torch.tensor(1.0))
+    p_net.mask_grad(0)
+    print(conv1_params[0].grad)
+    assert conv1_params[0].grad == 0
 
 
-test_prune_weights()
+# test_mask_grad()
+test_prune()  # can't get pytest to run on my conda env :/
