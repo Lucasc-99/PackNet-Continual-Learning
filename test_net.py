@@ -13,24 +13,20 @@ p_net = PackNet(model=test_model)
 
 
 def test_prune():
-    # w_1 = p_net.prune(q=.01)
-    p_net.current_task = 1
-    w_2 = p_net.prune(prune_quantile=1)
-    #w_3 = p_net.prune(prune_quantile=.33)
-    print(w_2)
-    #print(w_3)
+    w_1 = p_net.prune(prune_quantile=.33)
+    test_model.backward()
+    assert w_1 != 0
+    print(w_1)
 
-def test_mask_grad():
-
-    p_net.masks = [[{0, 1, 2, 3, 4}]]
-
-    layer_1 = list(test_model.parameters())
-    conv1_params = torch.flatten(layer_1[0])
-    conv1_params[0].grad = Variable(torch.tensor(1.0))
-    p_net.mask_grad(0)
-    print(conv1_params[0].grad)
-    assert conv1_params[0].grad == 0
+def test_fine_tune_mask():
+    p_net.fine_tune_mask()
+    for p in test_model.parameters():
+        for val in p.view(-1):
+            if val.grad:
+                print(val)
 
 
-# test_mask_grad()
-test_prune()  # can't get pytest to run on my conda env :/
+
+#test_prune()
+#test_fine_tune_mask()
+ # can't get pytest to run on my conda env :/
