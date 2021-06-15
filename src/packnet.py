@@ -129,6 +129,10 @@ class PackNet:
                 mask_idx += 1
 
     def fix_biases(self):
+        """
+        Fix the gradient of bias parameters
+        :return: None
+        """
         for name, param_layer in self.model.named_parameters():
             if 'bias' in name:
                 param_layer.requires_grad = False

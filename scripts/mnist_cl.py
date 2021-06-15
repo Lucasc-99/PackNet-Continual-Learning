@@ -4,7 +4,7 @@ import torch.optim as optim
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
-from nets import MnistClassifier, SmallerClassifier
+from src.nets import SmallerClassifier
 
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),

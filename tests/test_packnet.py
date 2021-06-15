@@ -2,10 +2,9 @@
 Tests for nets.py and packnet.py
 """
 from torch import nn
-from torch.autograd import Variable
 
-from nets import LightweightEncoder, SmallerClassifier
-from packnet import PackNet
+from src.nets import SmallerClassifier
+from src.packnet import PackNet
 import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets

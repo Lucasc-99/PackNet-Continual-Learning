@@ -5,8 +5,8 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from nets import SmallerClassifier
-from packnet import PackNet
+from src.nets import SmallerClassifier
+from src.packnet import PackNet
 
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),
