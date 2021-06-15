@@ -137,6 +137,9 @@ class PackNet:
             if 'bias' in name:
                 param_layer.requires_grad = False
 
+    def finalize_training(self, PATH="/"):
+        torch.save(self.model.state_dict(), PATH)
+
     def next_task(self):
         self.current_task += 1
 
