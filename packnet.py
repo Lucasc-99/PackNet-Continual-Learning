@@ -96,17 +96,17 @@ class PackNet:
     
                     # zero grad except for weights to fine-tune
                     flat = param_layer.view(-1)
-                    with torch.no_grad():
-                        for i, v in enumerate(flat):
-                            if i not in prev_mask:
-                                v.grad = Variable(torch.tensor(0.0))
+
+                    for i, v in enumerate(flat):
+                        if i not in prev_mask:
+                            v.grad *= 0.0
     
                     mask_idx += 1
 
     def get_fine_tune_params(self):
         """
         Get parameters for fine-tuning (should be much faster than fine_tune_mask)
-        :return: An iterable with parameters for fine-tuning
+        :return: An iterable with only parameters for fine-tuning
         """
         # Ideally should modify self.model.parameters() iterable in-place,
         # keeping only the parameters that will be fine-tuned and passed to the optimizer

@@ -64,10 +64,7 @@ for _ in range(N_FINE_TUNE_EPOCH):
         l = loss(test_model(img), cl)
         l.backward()
 
-        print("running fine tune mask")
         p_net.fine_tune_mask()
-        print("finished step of finetune mask")
-
         sgd_optim.step()
 
 

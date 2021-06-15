@@ -18,20 +18,18 @@ def test_prune():
     assert w_1 != 0
     print(w_1)
 
+
 def test_fine_tune_mask():
+    p_net.prune(prune_quantile=.1)
     p_net.fine_tune_mask()
-    for p in test_model.parameters():
-        for val in p.view(-1):
-            if val.grad:
-                print(val)
-
-
-def test_get_fine_tune_params():
-    p_net.get_fine_tune_params()
-    print(list(test_model.parameters()))
-
-
-#test_prune()
-#test_fine_tune_mask()
- # can't get pytest to run on my conda env :/
-test_get_fine_tune_params()
+    with torch.no_grad():
+        mask_idx = 0
+        for name, param_layer in p_net.model.named_parameters():
+            if 'bias' not in name:
+                flat = param_layer.view(-1)
+                for i, v in enumerate(flat):
+                    v.requires_grad = False
+                    print(v.requires_grad)
+# test_prune()
+test_fine_tune_mask()
+# can't get pytest to run on my conda env :/
