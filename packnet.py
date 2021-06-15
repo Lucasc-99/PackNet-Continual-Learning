@@ -11,42 +11,75 @@ class PackNet:
         self.current_task = 0
         self.masks = []  # 3-dimensions: task, layer, parameter mask
 
-    def prune(self, q):
+    def prune(self, prune_quantile):
         """
-        Create task-specific mask and prune model
+        Create task-specific mask and prune least relevant weights
         :return: Number of weights pruned
         """
 
         mask = []  # create mask for this task
         weights_pruned = 0
+
+        # Calculate Quantile
+
+        all_prunable_params = torch.tensor([])
         mask_idx = 0
+        for name, param_layer in self.model.named_parameters():
+            if 'bias' not in name:
+                flat = param_layer.view(-1)
 
-        for m in self.model.modules():
-            for j, (name, param_layer) in enumerate(m.named_parameters()):
+                # get prunable weights for this layer
+                prev_mask = set()
+                for temp in self.masks:
+                    if len(temp) > mask_idx:
+                        prev_mask |= temp[mask_idx]
 
-                if 'bias' not in name:
-                    layer_mask = set()
-                    cutoff = torch.quantile(input=torch.abs(torch.flatten(param_layer)), q=q)
+                prunable_weights = set([i for i in range(0, len(flat))]) - prev_mask
 
-                    with torch.no_grad():
-                        flat = param_layer.view(-1)
+                # Concat layer parameters with all parameters tensor
+                values = torch.index_select(torch.abs(flat), 0, torch.tensor(list(prunable_weights)))
+                all_prunable_params = torch.cat((all_prunable_params, values), -1)
+                mask_idx += 1
 
-                        for i, v in enumerate(flat):
-                            prunable = True
+        cutoff = torch.quantile(input=all_prunable_params, q=prune_quantile)
 
-                            for temp in self.masks:
-                                if len(temp) > mask_idx and i in temp[mask_idx]:
-                                    prunable = False
+        del all_prunable_params  # Garbage collection will do this for me?
 
-                            if prunable:
-                                if v >= cutoff:
-                                    layer_mask.add(i)
-                                else:
-                                    v *= 0.0
-                                    weights_pruned += 1
+        # Prune weights and create mask
 
-                    mask.append(layer_mask)
-                    mask_idx += 1
+        mask_idx = 0
+        for name, param_layer in self.model.named_parameters():
+
+            if 'bias' not in name:
+                flat = param_layer.view(-1)
+
+                # get prunable weights for this layer
+                prev_mask = set()
+                for temp in self.masks:
+                    if len(temp) > mask_idx:
+                        prev_mask |= temp[mask_idx]
+
+                # loop over layer parameters and prune
+                curr_mask = set()
+                with torch.no_grad():
+
+                    for i, v in enumerate(flat):
+                        if i not in prev_mask:
+                            if torch.abs(v) >= cutoff:
+                                curr_mask.add(i)
+                            else:
+                                v *= 0.0
+                                weights_pruned += 1
+
+                mask.append(curr_mask)
+                mask_idx += 1
 
         self.masks.append(mask)
         return weights_pruned
+
+    def zero_grad_pweights(self):
+        """
+        Zero the gradient of pruned weights.
+        Run this method before each optimizer step at
+        :return:
+        """
