@@ -81,16 +81,14 @@ class PackNet:
             self.masks.append(mask)
             return weights_pruned
 
-    def next_task(self):
-        self.current_task += 1
-
     def fine_tune_mask(self):
         """
         Zero the gradient of pruned weights as well as previously fixed weights
-        Run this method before each optimizer step during fine-tuning
+        Apply this mask before each optimizer step during fine-tuning
         :return: None
         """
-        assert len(self.masks) > self.current_task
+        if len(self.masks) <= self.current_task:
+            return
 
         mask_idx = 0
         for name, param_layer in self.model.named_parameters():
@@ -99,14 +97,44 @@ class PackNet:
                 prev_mask = self.masks[self.current_task][mask_idx]
 
                 # zero grad except for weights to fine-tune
-                flat = param_layer.view(-1)
-
-                # Bottleneck here
-                for i, v in enumerate(flat):
-                    if i not in prev_mask and v.grad:
-                        v.grad.zero_()
-
+                for i, v in enumerate(param_layer.grad.view(-1)):
+                    if i not in prev_mask and v:
+                        v.zero_()
                 mask_idx += 1
+
+    def training_mask(self):
+        """
+        Zero the gradient of only fixed weights for previous tasks
+        Apply this mask after .backward() and before
+        optimizer.step() at every batch of training
+        :return: None
+        """
+        if len(self.masks) >= self.current_task:
+            return
+
+        mask_idx = 0
+        for name, param_layer in self.model.named_parameters():
+            if 'bias' not in name:
+                # get indices of weights from previous masks
+                prev_mask = set()
+
+                for m in self.masks:
+                    assert len(m) > mask_idx
+                    prev_mask |= m[mask_idx]
+
+                # zero grad of previous fixed weights
+                for i, v in enumerate(param_layer.grad.view(-1)):
+                    if i in prev_mask and v:
+                        v.zero_()
+                mask_idx += 1
+
+    def fix_biases(self):
+        for name, param_layer in self.model.named_parameters():
+            if 'bias' in name:
+                param_layer.requires_grad = False
+
+    def next_task(self):
+        self.current_task += 1
 
     def get_fine_tune_params(self):
         """
@@ -119,5 +147,3 @@ class PackNet:
         # This will save compute for running
         # fine_tune_mask on every batch during fine tuning.
         # is this even possible?
-
-

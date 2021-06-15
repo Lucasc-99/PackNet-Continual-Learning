@@ -15,6 +15,10 @@ class MnistClassifier(nn.Module):
         self.dense2 = nn.Linear(in_features=2000, out_features=10)
 
     def forward(self, x):
+        """
+        :param x: 1x28x28 tensor representing MNIST image
+        :return: logits, 10 classes
+        """
         x = F.relu(self.conv1(x))
         x = torch.flatten(x, 1)
         x = F.relu(self.dense1(x))
@@ -23,6 +27,7 @@ class MnistClassifier(nn.Module):
 
 class SmallerClassifier(nn.Module):
 
+
     def __init__(self, input_channels=1):
         super(SmallerClassifier, self).__init__()
 
@@ -30,6 +35,10 @@ class SmallerClassifier(nn.Module):
         self.dense1 = nn.Linear(in_features=1728, out_features=10)
 
     def forward(self, x):
+        """
+        :param x: 1x28x28 tensor representing MNIST image
+        :return: logits, 10 classes
+        """
         x = F.relu(self.conv1(x))
         x = torch.flatten(x, 1)
         x = F.relu(self.dense1(x))

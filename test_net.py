@@ -37,7 +37,7 @@ def test_prune():
 
 def test_fine_tune_mask():
     test_model.zero_grad()
-    print(p_net.prune(prune_quantile=.2))
+    print(p_net.prune(prune_quantile=.5))
     for img, cl in trainloader:
         test_model.zero_grad()
         l = loss(test_model(img), cl)
@@ -45,6 +45,7 @@ def test_fine_tune_mask():
         break
 
     p_net.fine_tune_mask()
+
 
 # test_prune()
 test_fine_tune_mask()
