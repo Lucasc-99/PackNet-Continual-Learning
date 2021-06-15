@@ -56,6 +56,7 @@ print("pruning")
 p_net.prune(prune_quantile=.6)
 print("done pruning")
 
+
 sgd_optim = optim.SGD(test_model.parameters(), lr=LR)
 for _ in range(N_FINE_TUNE_EPOCH):
     for img, cl in tqdm(trainloaders[0]):
@@ -68,6 +69,7 @@ for _ in range(N_FINE_TUNE_EPOCH):
         print("finished step of finetune mask")
 
         sgd_optim.step()
+
 
 print("testing after fine-tune")
 

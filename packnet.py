@@ -87,19 +87,32 @@ class PackNet:
         :return: None
         """
         assert len(self.masks) > self.current_task
+        with torch.no_grad():
+            mask_idx = 0
+            for name, param_layer in self.model.named_parameters():
+                if 'bias' not in name:
+                    # get weights to be fine-tuned
+                    prev_mask = self.masks[self.current_task][mask_idx]
+    
+                    # zero grad except for weights to fine-tune
+                    flat = param_layer.view(-1)
+                    with torch.no_grad():
+                        for i, v in enumerate(flat):
+                            if i not in prev_mask:
+                                v.grad = Variable(torch.tensor(0.0))
+    
+                    mask_idx += 1
 
-        mask_idx = 0
-        for name, param_layer in self.model.named_parameters():
-            if 'bias' not in name:
+    def get_fine_tune_params(self):
+        """
+        Get parameters for fine-tuning (should be much faster than fine_tune_mask)
+        :return: An iterable with parameters for fine-tuning
+        """
+        # Ideally should modify self.model.parameters() iterable in-place,
+        # keeping only the parameters that will be fine-tuned and passed to the optimizer
 
-                # get weights to be fine-tuned
-                prev_mask = self.masks[self.current_task][mask_idx]
+        # This will save the computationally taxing requirement of running
+        # fine_tune_mask on every batch during fine tuning
+        # is this even possible?
 
-                # zero grad except for weights to fine-tune
-                flat = param_layer.view(-1)
-                with torch.no_grad():
-                    for i, v in enumerate(flat):
-                        if i not in prev_mask:
-                            v.grad = Variable(torch.tensor(0.0))
 
-                mask_idx += 1

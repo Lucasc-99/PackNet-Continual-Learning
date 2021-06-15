@@ -26,7 +26,12 @@ def test_fine_tune_mask():
                 print(val)
 
 
+def test_get_fine_tune_params():
+    p_net.get_fine_tune_params()
+    print(list(test_model.parameters()))
+
 
 #test_prune()
 #test_fine_tune_mask()
  # can't get pytest to run on my conda env :/
+test_get_fine_tune_params()
