@@ -7,6 +7,7 @@ import tqdm
 class PackNet:
 
     def __init__(self, model):
+        self.PATH = None
         self.model = model
         self.mode = 'train'
         self.current_task = 0
@@ -106,10 +107,12 @@ class PackNet:
         """
         Zero the gradient of only fixed weights for previous tasks
         Apply this mask after .backward() and before
-        optimizer.step() at every batch of training
+        optimizer.step() at every batch of training a new task
         :return: None
         """
-        if len(self.masks) >= self.current_task:
+        assert len(self.masks) == self.current_task
+
+        if len(self.masks) == 0:
             return
 
         mask_idx = 0
@@ -137,20 +140,49 @@ class PackNet:
             if 'bias' in name:
                 param_layer.requires_grad = False
 
-    def finalize_training(self, PATH="/"):
+    def apply_eval_mask(self, task_idx):
+        """
+        Revert to network state for a specific task
+        :param task_idx:
+        :return:
+        """
+
+        assert len(self.masks) > task_idx
+
+        mask_idx = 0
+        for name, param_layer in self.model.named_parameters():
+            if 'bias' not in name:
+                # get indices of weights from previous masks
+                prev_mask = set()
+                for i in range(0, task_idx + 1):
+                    prev_mask |= self.masks[i][mask_idx]
+
+                # zero out all weights that are not in the mask for this task
+                with torch.no_grad():
+                    for i, v in enumerate(param_layer.view(-1)):
+                        if i not in prev_mask:
+                            v *= 0.0
+                mask_idx += 1
+
+    def save_final_state(self, PATH='model_weights.pth'):
+        self.PATH = PATH
         torch.save(self.model.state_dict(), PATH)
+
+    def load_final_state(self):
+        self.model.load_state_dict(torch.load(self.PATH))
 
     def next_task(self):
         self.current_task += 1
 
+    # Unimplemented methods
     def get_fine_tune_params(self):
         """
         Get parameters for fine-tuning (should be much faster than fine_tune_mask)
         :return: An iterable with only parameters for fine-tuning
         """
-        # Ideally should modify self.model.parameters() iterable in-place,
+        # Ideally should modify the self.model.parameters() iterable in-place,
         # keeping only the parameters that will be fine-tuned and passed to the optimizer
 
         # This will save compute for running
-        # fine_tune_mask on every batch during fine tuning.
+        # fine_tune_mask on every batch.
         # is this even possible?

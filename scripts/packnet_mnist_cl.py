@@ -1,3 +1,6 @@
+"""
+Train/Test split for evaluation of PackNet on task incremental setting
+"""
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -66,25 +69,30 @@ for loader in trainloaders:
             p_net.fine_tune_mask()
             sgd_optim.step()
 
+    p_net.fix_biases()
     p_net.next_task()
+
+p_net.save_final_state()
 
 # Test
 
 print("\nTesting Model")
-t1 = 0
+
 accuracy = []
+for i, loader in enumerate(testloaders):
+    t1 = 0
+    p_net.apply_eval_mask(task_idx=i)
 
-for img, cl in tqdm(testloaders[1]):
-    pred = torch.argmax(test_model(img)[0])
-    if pred != cl[0]:
-        t1 += 1
-accuracy.append(1.0 - (t1 / len(testloaders[1])))
+    for img, cl in tqdm(loader):
+        pred = torch.argmax(test_model(img)[0])
+        if pred != cl[0]:
+            t1 += 1
 
+    p_net.load_final_state()
 
+    accuracy.append(1.0 - (t1 / len(loader)))
 
 # Results
 print("")
 for i, r in enumerate(accuracy):
     print(f'Accuracy on task {i + 1} : {r}')
-
-# Accuracy trial 1: 0.5357000000000001

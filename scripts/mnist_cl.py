@@ -1,3 +1,6 @@
+"""
+Train/Test split for evaluation of baseline performance on task incremental setting
+"""
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -41,7 +44,7 @@ testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 #
 model = SmallerClassifier()
 LR = .01
-N_EPOCH = 3
+N_EPOCH = 1
 loss = nn.NLLLoss()
 sgd_optim = optim.SGD(model.parameters(), lr=LR)
 

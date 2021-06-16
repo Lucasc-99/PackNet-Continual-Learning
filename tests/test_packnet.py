@@ -45,7 +45,4 @@ def test_fine_tune_mask():
 
     p_net.fine_tune_mask()
 
-
-# test_prune()
-test_fine_tune_mask()
-# can't get pytest to run on my conda env :/
+# can't get pytest to run on my conda env at the moment :(
