@@ -1,7 +1,4 @@
 import torch
-from torch.autograd import Variable
-import torch.nn as nn
-import tqdm
 
 
 class PackNet:
@@ -9,7 +6,6 @@ class PackNet:
     def __init__(self, model):
         self.PATH = None
         self.model = model
-        self.mode = 'train'
         self.current_task = 0
         self.masks = []  # 3-dimensions: task, layer, parameter mask
 
@@ -31,13 +27,16 @@ class PackNet:
             if 'bias' not in name:
                 flat = param_layer.view(-1)
 
-                # get prunable weights for this layer
+                # get non-prunable weights
                 prev_mask = set()
                 for temp in self.masks:
                     if len(temp) > mask_idx:
                         prev_mask |= temp[mask_idx]
 
+                # find prunable weights with set diff
                 prunable_weights = set([i for i in range(0, len(flat))]) - prev_mask
+
+                assert len(prunable_weights) > 0, 'No parameters left to prune'
 
                 # Concat layer parameters with all parameters tensor
                 values = torch.index_select(torch.abs(flat), 0, torch.tensor(list(prunable_weights)))
@@ -143,8 +142,8 @@ class PackNet:
     def apply_eval_mask(self, task_idx):
         """
         Revert to network state for a specific task
-        :param task_idx:
-        :return:
+        :param task_idx: the task id to be evaluated (0 - > n_tasks)
+        :return: None
         """
 
         assert len(self.masks) > task_idx
@@ -164,17 +163,49 @@ class PackNet:
                             v *= 0.0
                 mask_idx += 1
 
+    def mask_remaining_params(self):
+        """
+        Create mask for remaining parameters
+        :return: None
+        """
+        mask_idx = 0
+        mask = []
+        for name, param_layer in self.model.named_parameters():
+            if 'bias' not in name:
+
+                # get all previously fixed weights
+                prev_mask = set()
+                for temp in self.masks:
+                    if len(temp) > mask_idx:
+                        prev_mask |= temp[mask_idx]
+
+                # create a mask of all the remaining weights
+                layer_mask = set([i for i in range(0, len(param_layer.view(-1)))]) - prev_mask
+                mask.append(layer_mask)
+
+                mask_idx += 1
+        self.masks.append(mask)
+
     def save_final_state(self, PATH='model_weights.pth'):
+        """
+        Save the final weights of the model after training
+        :param PATH: The path to weights file
+        :return: None
+        """
         self.PATH = PATH
         torch.save(self.model.state_dict(), PATH)
 
     def load_final_state(self):
+        """
+        Load the final state of the model
+        :return:
+        """
         self.model.load_state_dict(torch.load(self.PATH))
 
     def next_task(self):
         self.current_task += 1
 
-    # Unimplemented methods
+    # Unimplemented method
     def get_fine_tune_params(self):
         """
         Get parameters for fine-tuning (should be much faster than fine_tune_mask)
@@ -183,6 +214,5 @@ class PackNet:
         # Ideally should modify the self.model.parameters() iterable in-place,
         # keeping only the parameters that will be fine-tuned and passed to the optimizer
 
-        # This will save compute for running
-        # fine_tune_mask on every batch.
+        # This will save the compute for running fine_tune_mask on every batch.
         # is this even possible?

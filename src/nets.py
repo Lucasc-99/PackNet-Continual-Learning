@@ -25,8 +25,8 @@ class MnistClassifier(nn.Module):
         x = F.relu(self.dense2(x))
         return F.log_softmax(x, dim=1)
 
-class SmallerClassifier(nn.Module):
 
+class SmallerClassifier(nn.Module):
 
     def __init__(self, input_channels=1):
         super(SmallerClassifier, self).__init__()
