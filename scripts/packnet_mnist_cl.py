@@ -44,7 +44,7 @@ p_net = PackNet(model=test_model)
 
 LR = .01
 N_TRAIN_EPOCH = 3
-N_FINE_TUNE_EPOCH = 1
+N_FINE_TUNE_EPOCH = 2
 loss = nn.NLLLoss()
 sgd_optim = optim.SGD(test_model.parameters(), lr=LR)
 

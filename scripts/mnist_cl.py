@@ -44,7 +44,7 @@ testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 #
 model = SmallerClassifier()
 LR = .01
-N_EPOCH = 1
+N_EPOCH = 3
 loss = nn.NLLLoss()
 sgd_optim = optim.SGD(model.parameters(), lr=LR)
 
