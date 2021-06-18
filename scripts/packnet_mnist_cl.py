@@ -39,7 +39,7 @@ test = datasets.KMNIST(root='./data', train=False, download=True, transform=tran
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
-test_model = MnistClassifier()
+test_model = SmallerClassifier()
 p_net = PackNet(model=test_model)
 
 LR = .01
@@ -66,7 +66,7 @@ for i, loader in enumerate(trainloaders):
 
     if i == 0:
         p_net.prune(prune_quantile=.7)
-    if i == 1:
+    elif i == 1:
         p_net.prune(prune_quantile=.5)
     else:
 
