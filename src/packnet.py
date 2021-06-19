@@ -26,7 +26,8 @@ class PackNet:
 
                 # Bug here?
                 p = param_layer.masked_select(~prev_mask).view(-1)
-                all_prunable = torch.cat((all_prunable.view(-1), p))
+                assert len(p) > 0, "No weights left to prune"
+                all_prunable = torch.cat((all_prunable.view(-1), p), -1)
 
                 mask_idx += 1
 
