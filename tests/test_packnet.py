@@ -29,20 +29,28 @@ p_net = PackNet(model=test_model)
 
 
 def test_prune():
-    w_1 = p_net.prune(prune_quantile=.33)
-    assert w_1 != 0
-    print(w_1)
+    p_net.prune(prune_quantile=.33)
+
+    print(p_net.masks)
+    print(list(p_net.named_parameters()))
+
+    p_net.next_task()
+    assert len(p_net.masks) != 0
 
 
 def test_fine_tune_mask():
     test_model.zero_grad()
-    print(p_net.prune(prune_quantile=.5))
+    p_net.prune(prune_quantile=.5)
     for img, cl in trainloader:
         test_model.zero_grad()
         l = loss(test_model(img), cl)
         l.backward()
         break
-
     p_net.fine_tune_mask()
+
+
+
+test_prune()
+test_fine_tune_mask()
 
 # can't get pytest to run on my conda env at the moment :(

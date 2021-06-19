@@ -15,75 +15,46 @@ class PackNet:
         :return: Number of weights pruned
         """
 
-        mask = []  # create mask for this task
-        weights_pruned = 0
-
         # Calculate Quantile
-
-        all_prunable_params = torch.tensor([])
+        all_prunable = torch.tensor([])
         mask_idx = 0
-
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
-                flat = param_layer.view(-1)
+                # get non-prunable weights for this layer
+                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool)
+                for task in self.masks:
+                    prev_mask |= task[mask_idx]
 
-                # get non-prunable weights
-                prev_mask = set()
-                for temp in self.masks:
-                    if len(temp) > mask_idx:
-                        prev_mask |= temp[mask_idx]
+                p = param_layer.masked_select(~prev_mask).view(-1)
+                all_prunable = torch.cat((all_prunable.view(-1), p), -1)
 
-                # find prunable weights with set diff
-                prunable_weights = set([i for i in range(0, len(flat))]) - prev_mask
-
-                assert len(prunable_weights) > 0, 'No parameters left to prune'
-
-                # Concat layer parameters with all parameters tensor
-                values = torch.index_select(torch.abs(flat), 0, torch.tensor(list(prunable_weights)))
-                all_prunable_params = torch.cat((all_prunable_params, values), -1)
                 mask_idx += 1
 
-        cutoff = torch.quantile(input=all_prunable_params, q=prune_quantile)
-
-        del all_prunable_params  # Garbage collection will do this for me?
-
-        # Prune weights and create mask
+        cutoff = torch.quantile(torch.abs(all_prunable), q=prune_quantile)
 
         mask_idx = 0
+        mask = []  # create mask for this task
         with torch.no_grad():
             for name, param_layer in self.model.named_parameters():
 
                 if 'bias' not in name:
-                    flat = param_layer.view(-1)
 
-                    # get prunable weights for this layer
-                    prev_mask = set()
-                    for temp in self.masks:
-                        if len(temp) > mask_idx:
-                            prev_mask |= temp[mask_idx]
+                    # get weight mask for this layer
+                    prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool)  # p
+                    for task in self.masks:
+                        prev_mask |= task[mask_idx]
+                    curr_mask = torch.abs(param_layer).ge(cutoff)  # q
+                    curr_mask &= ~prev_mask  # (q & ~p)
 
-                    # loop over layer parameters and prune
-                    curr_mask = set()
-                    with torch.no_grad():
-
-                        # Bottleneck here on dense layers
-                        for i, v in enumerate(flat):
-                            if i not in prev_mask:
-                                if torch.abs(v) >= cutoff:
-                                    curr_mask.add(i)
-                                else:
-                                    v *= 0.0
-                                    weights_pruned += 1
-
+                    param_layer *= curr_mask  # Zero non masked weights
                     mask.append(curr_mask)
                     mask_idx += 1
 
             self.masks.append(mask)
-            return weights_pruned
 
     def fine_tune_mask(self):
         """
-        Zero the gradient of pruned weights as well as previously fixed weights
+        Zero the gradient of pruned weights this task as well as previously fixed weights
         Apply this mask before each optimizer step during fine-tuning
         :return: None
         """
@@ -93,13 +64,7 @@ class PackNet:
         mask_idx = 0
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
-                # get weights to be fine-tuned
-                prev_mask = self.masks[self.current_task][mask_idx]
-
-                # zero grad except for weights to fine-tune
-                for i, v in enumerate(param_layer.grad.view(-1)):
-                    if i not in prev_mask and v:
-                        v.zero_()
+                param_layer.grad *= self.masks[self.current_task][mask_idx]
                 mask_idx += 1
 
     def training_mask(self):
@@ -109,25 +74,21 @@ class PackNet:
         optimizer.step() at every batch of training a new task
         :return: None
         """
-        assert len(self.masks) == self.current_task
-
         if len(self.masks) == 0:
             return
 
         mask_idx = 0
+
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
-                # get indices of weights from previous masks
-                prev_mask = set()
-
-                for m in self.masks:
-                    assert len(m) > mask_idx
-                    prev_mask |= m[mask_idx]
+                # get mask of weights from previous tasks
+                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool)
+                for task in self.masks:
+                    prev_mask |= task[mask_idx]
 
                 # zero grad of previous fixed weights
-                for i, v in enumerate(param_layer.grad.view(-1)):
-                    if i in prev_mask and v:
-                        v.zero_()
+                param_layer.grad *= ~prev_mask
+
                 mask_idx += 1
 
     def fix_biases(self):
@@ -151,16 +112,15 @@ class PackNet:
         mask_idx = 0
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
+
                 # get indices of weights from previous masks
-                prev_mask = set()
+                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool)
                 for i in range(0, task_idx + 1):
                     prev_mask |= self.masks[i][mask_idx]
 
                 # zero out all weights that are not in the mask for this task
                 with torch.no_grad():
-                    for i, v in enumerate(param_layer.view(-1)):
-                        if i not in prev_mask:
-                            v *= 0.0
+                    param_layer *= prev_mask
                 mask_idx += 1
 
     def mask_remaining_params(self):
@@ -173,14 +133,13 @@ class PackNet:
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
 
-                # get all previously fixed weights
-                prev_mask = set()
-                for temp in self.masks:
-                    if len(temp) > mask_idx:
-                        prev_mask |= temp[mask_idx]
+                # Get mask of weights from previous tasks
+                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool)
+                for task in self.masks:
+                    prev_mask |= task[mask_idx]
 
-                # create a mask of all the remaining weights
-                layer_mask = set([i for i in range(0, len(param_layer.view(-1)))]) - prev_mask
+                # Create mask of remaining parameters
+                layer_mask = ~prev_mask
                 mask.append(layer_mask)
 
                 mask_idx += 1
@@ -205,14 +164,8 @@ class PackNet:
     def next_task(self):
         self.current_task += 1
 
-    # Unimplemented method
-    def get_fine_tune_params(self):
-        """
-        Get parameters for fine-tuning (should be much faster than fine_tune_mask)
-        :return: An iterable with only parameters for fine-tuning
-        """
-        # Ideally should modify the self.model.parameters() iterable in-place,
-        # keeping only the parameters that will be fine-tuned and passed to the optimizer
+    def parameters(self):
+        return self.model.parameters()
 
-        # This will save the compute for running fine_tune_mask on every batch.
-        # is this even possible?
+    def named_parameters(self):
+        return self.model.named_parameters()
