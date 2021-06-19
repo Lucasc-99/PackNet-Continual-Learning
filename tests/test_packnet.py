@@ -40,17 +40,31 @@ def test_prune():
 
 def test_fine_tune_mask():
     test_model.zero_grad()
-    p_net.prune(prune_quantile=.5)
+    p_net.prune(prune_quantile=.9)
     for img, cl in trainloader:
         test_model.zero_grad()
         l = loss(test_model(img), cl)
         l.backward()
         break
+
+    for name, param_layer in p_net.named_parameters():
+        if 'bias' not in name:
+            print(f"\n {name} Values \n")
+            print(param_layer)
+            print(f"\n {name} grad: \n")
+            print(param_layer.grad)
+
     p_net.fine_tune_mask()
+    print("\n\n\n\nAfter FineTune\n\n\n\n")
 
+    for name, param_layer in p_net.named_parameters():
+        if 'bias' not in name:
+            print(f"\n {name} Values \n")
+            print(param_layer)
+            print(f"\n {name} grad: \n")
+            print(param_layer.grad)
 
-
-test_prune()
+# test_prune()
 test_fine_tune_mask()
 
 # can't get pytest to run on my conda env at the moment :(
