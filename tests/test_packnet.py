@@ -9,11 +9,9 @@ import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),
                                 ])
-
 
 # MNIST
 train = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
@@ -24,19 +22,36 @@ testloader = torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 
 loss = nn.NLLLoss()
 
-test_model = SmallerClassifier()
-p_net = PackNet(model=test_model)
-
 
 def test_prune():
-    w_1 = p_net.prune(prune_quantile=.33)
-    assert w_1 != 0
-    print(w_1)
+    test_model = SmallerClassifier()
+    p_net = PackNet(model=test_model)
+    p_net.prune(prune_quantile=.7)
+    p_net.fix_biases()
+    p_net.next_task()
+
+    total_masked = 0
+    for task in p_net.masks:
+        for layer_mask in task:
+            total_masked += torch.count_nonzero(layer_mask.view(-1))
+    print(f"Total Masked after prune 1: {total_masked}")
+
+    p_net.prune(prune_quantile=.5)
+
+    total_masked = 0
+    for task in p_net.masks:
+        for layer_mask in task:
+            total_masked += torch.count_nonzero(layer_mask.view(-1))
+    print(f"Total Masked after prune 2: {total_masked}")
+    assert total_masked < 17335  # make sure we havent masked all the parameters
+    assert len(p_net.masks) != 0
 
 
 def test_fine_tune_mask():
+    test_model = SmallerClassifier()
+    p_net = PackNet(model=test_model)
     test_model.zero_grad()
-    print(p_net.prune(prune_quantile=.5))
+    p_net.prune(prune_quantile=.9)
     for img, cl in trainloader:
         test_model.zero_grad()
         l = loss(test_model(img), cl)
@@ -44,5 +59,10 @@ def test_fine_tune_mask():
         break
 
     p_net.fine_tune_mask()
+
+
+test_prune()
+
+test_fine_tune_mask()
 
 # can't get pytest to run on my conda env at the moment :(

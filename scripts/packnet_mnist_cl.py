@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from src.nets import SmallerClassifier, MnistClassifier
+from src.nets import MnistClassifier
 from src.packnet import PackNet
 
 transform = transforms.Compose([transforms.ToTensor(),
@@ -34,12 +34,13 @@ testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 
 
 # KMNIST
+
 train = datasets.KMNIST(root='./data', train=True, download=True, transform=transform)
 test = datasets.KMNIST(root='./data', train=False, download=True, transform=transform)
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
-test_model = SmallerClassifier()
+test_model = MnistClassifier()
 p_net = PackNet(model=test_model)
 
 LR = .01
@@ -69,7 +70,6 @@ for i, loader in enumerate(trainloaders):
     elif i == 1:
         p_net.prune(prune_quantile=.5)
     else:
-
         p_net.mask_remaining_params()
 
     sgd_optim = optim.SGD(test_model.parameters(), lr=LR)
@@ -112,4 +112,3 @@ for i, loader in enumerate(testloaders):
 print("")
 for i, r in enumerate(accuracy):
     print(f'Accuracy on task {i + 1} : {r}')
-

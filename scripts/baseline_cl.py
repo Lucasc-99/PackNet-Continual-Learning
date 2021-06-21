@@ -7,7 +7,7 @@ import torch.optim as optim
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
-from src.nets import SmallerClassifier
+from src.nets import MnistClassifier
 
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),
@@ -33,16 +33,16 @@ trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=Tr
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
 # KMNIST
-# train = datasets.KMNIST(root='./data', train=True, download=True, transform=transform)
-# test = datasets.KMNIST(root='./data', train=False, download=True, transform=transform)
-# trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
-# testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
+train = datasets.KMNIST(root='./data', train=True, download=True, transform=transform)
+test = datasets.KMNIST(root='./data', train=False, download=True, transform=transform)
+trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
+testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
 
 #
 # Define model and hyperparameters
 #
-model = SmallerClassifier()
+model = MnistClassifier()
 LR = .01
 N_EPOCH = 3
 loss = nn.NLLLoss()
