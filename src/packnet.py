@@ -25,7 +25,6 @@ class PackNet:
                 for task in self.masks:
                     prev_mask |= task[mask_idx]
 
-                # Bug here?
                 p = param_layer.masked_select(~prev_mask)
                 assert len(p) > 0, "No weights left to prune"
                 all_prunable = torch.cat((all_prunable.view(-1), p), -1)
@@ -67,7 +66,6 @@ class PackNet:
         mask_idx = 0
         for name, param_layer in self.model.named_parameters():
             if 'bias' not in name:
-                # param_layer.grad[self.masks[self.current_task][mask_idx].eq(0)] = 0
                 param_layer.grad *= self.masks[self.current_task][mask_idx]
                 mask_idx += 1
 
@@ -89,7 +87,7 @@ class PackNet:
                     prev_mask |= task[mask_idx]
 
                 # zero grad of previous fixed weights
-                param_layer.grad *= ~prev_mask  # param_layer.grad[prev_mask.ne(0)] = 0
+                param_layer.grad *= ~prev_mask
 
                 mask_idx += 1
 
@@ -120,7 +118,7 @@ class PackNet:
                         prev_mask |= self.masks[i][mask_idx]
 
                     # zero out all weights that are not in the mask for this task
-                    param_layer *= prev_mask  # param_layer[prev_mask.eq(0)] = 0.0
+                    param_layer *= prev_mask
 
                     mask_idx += 1
 
