@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from src.nets import SmallerClassifier, MnistClassifier
+from src.nets import MnistClassifier
 from src.packnet import PackNet
 
 transform = transforms.Compose([transforms.ToTensor(),
@@ -40,7 +40,7 @@ test = datasets.KMNIST(root='./data', train=False, download=True, transform=tran
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
-test_model = SmallerClassifier()
+test_model = MnistClassifier()
 p_net = PackNet(model=test_model)
 
 LR = .01

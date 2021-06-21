@@ -1,8 +1,9 @@
+"""
+Networks used in /scripts and /tests
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tqdm import tqdm
-import math
 
 
 class MnistClassifier(nn.Module):

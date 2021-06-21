@@ -9,11 +9,9 @@ import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),
                                 ])
-
 
 # MNIST
 train = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
@@ -23,8 +21,6 @@ trainloader = torch.utils.data.DataLoader(train, batch_size=64, shuffle=True)
 testloader = torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 
 loss = nn.NLLLoss()
-
-
 
 
 def test_prune():
@@ -47,7 +43,7 @@ def test_prune():
         for layer_mask in task:
             total_masked += torch.count_nonzero(layer_mask.view(-1))
     print(f"Total Masked after prune 2: {total_masked}")
-    assert total_masked < 17335 # make sure we havent masked all the parameters
+    assert total_masked < 17335  # make sure we havent masked all the parameters
     assert len(p_net.masks) != 0
 
 
@@ -63,6 +59,7 @@ def test_fine_tune_mask():
         break
 
     p_net.fine_tune_mask()
+
 
 test_prune()
 

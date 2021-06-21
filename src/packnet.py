@@ -12,7 +12,7 @@ class PackNet:
     def prune(self, prune_quantile):
         """
         Create task-specific mask and prune least relevant weights
-        :return: Number of weights pruned
+        :param prune_quantile: The percentage of weights to prune as a decimal
         """
         # Calculate Quantile
         all_prunable = torch.tensor([])
@@ -27,15 +27,12 @@ class PackNet:
 
                 # Bug here?
                 p = param_layer.masked_select(~prev_mask)
-                print(f"Prunable count for layer {name}  = {p.size()}")
                 assert len(p) > 0, "No weights left to prune"
                 all_prunable = torch.cat((all_prunable.view(-1), p), -1)
 
                 mask_idx += 1
 
-        print(f" Size of prunable: {all_prunable.numel()}")
         cutoff = torch.quantile(torch.abs(all_prunable), q=prune_quantile)
-        print(f"cutoff = {cutoff}")
 
         mask_idx = 0
         mask = []  # create mask for this task
@@ -54,7 +51,6 @@ class PackNet:
 
                     # Zero non masked weights
                     param_layer *= (curr_mask | prev_mask)
-                    # param_layer[curr_mask.eq(0)] = 0.0
 
                     mask.append(curr_mask)
                     mask_idx += 1
@@ -65,7 +61,6 @@ class PackNet:
         """
         Zero the gradient of pruned weights this task as well as previously fixed weights
         Apply this mask before each optimizer step during fine-tuning
-        :return: None
         """
         assert len(self.masks) > self.current_task
 
@@ -81,7 +76,6 @@ class PackNet:
         Zero the gradient of only fixed weights for previous tasks
         Apply this mask after .backward() and before
         optimizer.step() at every batch of training a new task
-        :return: None
         """
         if len(self.masks) == 0:
             return
@@ -102,7 +96,6 @@ class PackNet:
     def fix_biases(self):
         """
         Fix the gradient of bias parameters
-        :return: None
         """
         for name, param_layer in self.model.named_parameters():
             if 'bias' in name:
@@ -112,7 +105,6 @@ class PackNet:
         """
         Revert to network state for a specific task
         :param task_idx: the task id to be evaluated (0 - > n_tasks)
-        :return: None
         """
 
         assert len(self.masks) > task_idx
@@ -135,7 +127,6 @@ class PackNet:
     def mask_remaining_params(self):
         """
         Create mask for remaining parameters
-        :return: None
         """
         mask_idx = 0
         mask = []
@@ -158,7 +149,6 @@ class PackNet:
         """
         Save the final weights of the model after training
         :param PATH: The path to weights file
-        :return: None
         """
         self.PATH = PATH
         torch.save(self.model.state_dict(), PATH)
@@ -166,15 +156,23 @@ class PackNet:
     def load_final_state(self):
         """
         Load the final state of the model
-        :return:
         """
         self.model.load_state_dict(torch.load(self.PATH))
 
     def next_task(self):
+        """
+        Increment task
+        """
         self.current_task += 1
 
     def parameters(self):
+        """
+        Wrapper method for model.parameters()
+        """
         return self.model.parameters()
 
     def named_parameters(self):
+        """
+        Wrapper method for model.named_parameters()
+        """
         return self.model.named_parameters()
