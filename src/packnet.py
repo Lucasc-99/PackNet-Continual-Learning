@@ -21,17 +21,21 @@ class PackNet:
             if 'bias' not in name:
                 # get fixed weights for this layer
                 prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
+
                 for task in self.masks:
                     prev_mask |= task[mask_idx]
 
                 # Bug here?
-                p = param_layer.masked_select(~prev_mask).view(-1)
+                p = param_layer.masked_select(~prev_mask)
+                print(f"Prunable count for layer {name}  = {p.size()}")
                 assert len(p) > 0, "No weights left to prune"
                 all_prunable = torch.cat((all_prunable.view(-1), p), -1)
 
                 mask_idx += 1
 
+        print(f" Size of prunable: {all_prunable.numel()}")
         cutoff = torch.quantile(torch.abs(all_prunable), q=prune_quantile)
+        print(f"cutoff = {cutoff}")
 
         mask_idx = 0
         mask = []  # create mask for this task
@@ -49,7 +53,7 @@ class PackNet:
                     curr_mask = torch.logical_and(curr_mask, ~prev_mask)  # (q & ~p)
 
                     # Zero non masked weights
-                    param_layer *= curr_mask
+                    param_layer *= (curr_mask | prev_mask)
                     # param_layer[curr_mask.eq(0)] = 0.0
 
                     mask.append(curr_mask)

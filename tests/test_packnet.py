@@ -24,21 +24,36 @@ testloader = torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 
 loss = nn.NLLLoss()
 
-test_model = SmallerClassifier()
-p_net = PackNet(model=test_model)
+
 
 
 def test_prune():
-    p_net.prune(prune_quantile=.33)
-
-    print(p_net.masks)
-    print(list(p_net.named_parameters()))
-
+    test_model = SmallerClassifier()
+    p_net = PackNet(model=test_model)
+    p_net.prune(prune_quantile=.7)
+    p_net.fix_biases()
     p_net.next_task()
+
+    total_masked = 0
+    for task in p_net.masks:
+        for layer_mask in task:
+            total_masked += torch.count_nonzero(layer_mask.view(-1))
+    print(f"Total Masked after prune 1: {total_masked}")
+
+    p_net.prune(prune_quantile=.5)
+
+    total_masked = 0
+    for task in p_net.masks:
+        for layer_mask in task:
+            total_masked += torch.count_nonzero(layer_mask.view(-1))
+    print(f"Total Masked after prune 2: {total_masked}")
+    assert total_masked < 17335 # make sure we havent masked all the parameters
     assert len(p_net.masks) != 0
 
 
 def test_fine_tune_mask():
+    test_model = SmallerClassifier()
+    p_net = PackNet(model=test_model)
     test_model.zero_grad()
     p_net.prune(prune_quantile=.9)
     for img, cl in trainloader:
@@ -47,24 +62,10 @@ def test_fine_tune_mask():
         l.backward()
         break
 
-    for name, param_layer in p_net.named_parameters():
-        if 'bias' not in name:
-            print(f"\n {name} Values \n")
-            print(param_layer)
-            print(f"\n {name} grad: \n")
-            print(param_layer.grad)
-
     p_net.fine_tune_mask()
-    print("\n\n\n\nAfter FineTune\n\n\n\n")
 
-    for name, param_layer in p_net.named_parameters():
-        if 'bias' not in name:
-            print(f"\n {name} Values \n")
-            print(param_layer)
-            print(f"\n {name} grad: \n")
-            print(param_layer.grad)
+test_prune()
 
-# test_prune()
 test_fine_tune_mask()
 
 # can't get pytest to run on my conda env at the moment :(
