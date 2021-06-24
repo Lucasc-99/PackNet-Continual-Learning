@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from src.nets import MnistClassifier, SequentialClassifier
+from src.nets import MnistClassifier, SequentialClassifier, SmallerClassifier
 from src.packnet import PackNet
 
 transform = transforms.Compose([transforms.ToTensor(),

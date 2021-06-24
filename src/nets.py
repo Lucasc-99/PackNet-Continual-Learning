@@ -33,7 +33,7 @@ class SmallerClassifier(nn.Module):
         super(SmallerClassifier, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels=input_channels, out_channels=3, kernel_size=5)
-        self.norm_layer = nn.BatchNorm2d(num_features=1728, affine=True)
+        self.norm_layer = nn.BatchNorm2d(num_features=3, affine=True)
         self.dense1 = nn.Linear(in_features=1728, out_features=10)
 
     def forward(self, x):
