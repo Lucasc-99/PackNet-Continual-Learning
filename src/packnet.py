@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 
 
 class PackNet:
@@ -17,42 +18,44 @@ class PackNet:
         # Calculate Quantile
         all_prunable = torch.tensor([])
         mask_idx = 0
-        for name, param_layer in self.model.named_parameters():
-            if 'bias' not in name:
-                # get fixed weights for this layer
-                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
+        for mod in self.model.children():
+            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                for name, param_layer in mod.named_parameters():
+                    if 'bias' not in name:
+                        # get fixed weights for this layer
+                        prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
 
-                for task in self.masks:
-                    prev_mask |= task[mask_idx]
+                        for task in self.masks:
+                            prev_mask |= task[mask_idx]
 
-                p = param_layer.masked_select(~prev_mask)
-                assert len(p) > 0, "No weights left to prune"
-                all_prunable = torch.cat((all_prunable.view(-1), p), -1)
+                        p = param_layer.masked_select(~prev_mask)
+                        assert len(p) > 0, "No weights left to prune"
+                        all_prunable = torch.cat((all_prunable.view(-1), p), -1)
 
-                mask_idx += 1
+                        mask_idx += 1
 
         cutoff = torch.quantile(torch.abs(all_prunable), q=prune_quantile)
 
         mask_idx = 0
         mask = []  # create mask for this task
         with torch.no_grad():
-            for name, param_layer in self.model.named_parameters():
+            for mod in self.model.children():
+                if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                    for name, param_layer in mod.named_parameters():
+                        if 'bias' not in name:
+                            # get weight mask for this layer
+                            prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)  # p
+                            for task in self.masks:
+                                prev_mask |= task[mask_idx]
 
-                if 'bias' not in name:
+                            curr_mask = torch.abs(param_layer).ge(cutoff)  # q
+                            curr_mask = torch.logical_and(curr_mask, ~prev_mask)  # (q & ~p)
 
-                    # get weight mask for this layer
-                    prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)  # p
-                    for task in self.masks:
-                        prev_mask |= task[mask_idx]
+                            # Zero non masked weights
+                            param_layer *= (curr_mask | prev_mask)
 
-                    curr_mask = torch.abs(param_layer).ge(cutoff)  # q
-                    curr_mask = torch.logical_and(curr_mask, ~prev_mask)  # (q & ~p)
-
-                    # Zero non masked weights
-                    param_layer *= (curr_mask | prev_mask)
-
-                    mask.append(curr_mask)
-                    mask_idx += 1
+                            mask.append(curr_mask)
+                            mask_idx += 1
 
         self.masks.append(mask)
 
@@ -64,10 +67,12 @@ class PackNet:
         assert len(self.masks) > self.current_task
 
         mask_idx = 0
-        for name, param_layer in self.model.named_parameters():
-            if 'bias' not in name:
-                param_layer.grad *= self.masks[self.current_task][mask_idx]
-                mask_idx += 1
+        for mod in self.model.children():
+            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                for name, param_layer in mod.named_parameters():
+                    if 'bias' not in name:
+                        param_layer.grad *= self.masks[self.current_task][mask_idx]
+                        mask_idx += 1
 
     def training_mask(self):
         """
@@ -79,25 +84,39 @@ class PackNet:
             return
 
         mask_idx = 0
-        for name, param_layer in self.model.named_parameters():
-            if 'bias' not in name:
-                # get mask of weights from previous tasks
-                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
-                for task in self.masks:
-                    prev_mask |= task[mask_idx]
+        for mod in self.model.children():
+            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                for name, param_layer in mod.named_parameters():
+                    if 'bias' not in name:
+                        # get mask of weights from previous tasks
+                        prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
+                        for task in self.masks:
+                            prev_mask |= task[mask_idx]
 
-                # zero grad of previous fixed weights
-                param_layer.grad *= ~prev_mask
+                        # zero grad of previous fixed weights
+                        param_layer.grad *= ~prev_mask
 
-                mask_idx += 1
+                        mask_idx += 1
 
     def fix_biases(self):
         """
         Fix the gradient of bias parameters
         """
-        for name, param_layer in self.model.named_parameters():
-            if 'bias' in name:
-                param_layer.requires_grad = False
+        for mod in self.model.children():
+            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                for name, param_layer in mod.named_parameters():
+                    if 'bias' in name:
+                        param_layer.requires_grad = False
+
+    def fix_batch_norm(self):
+        """
+        Fix batch norm gain, bias, running mean and variance
+        """
+        for mod in self.model.children():
+            if isinstance(mod, nn.BatchNorm2d):
+                mod.affine = False
+                for param_layer in mod.parameters():
+                    param_layer.requires_grad = False
 
     def apply_eval_mask(self, task_idx):
         """
@@ -109,18 +128,20 @@ class PackNet:
 
         mask_idx = 0
         with torch.no_grad():
-            for name, param_layer in self.model.named_parameters():
-                if 'bias' not in name:
+            for mod in self.model.children():
+                if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                    for name, param_layer in mod.named_parameters():
+                        if 'bias' not in name:
 
-                    # get indices of all weights from previous masks
-                    prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
-                    for i in range(0, task_idx + 1):
-                        prev_mask |= self.masks[i][mask_idx]
+                            # get indices of all weights from previous masks
+                            prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
+                            for i in range(0, task_idx + 1):
+                                prev_mask |= self.masks[i][mask_idx]
 
-                    # zero out all weights that are not in the mask for this task
-                    param_layer *= prev_mask
+                            # zero out all weights that are not in the mask for this task
+                            param_layer *= prev_mask
 
-                    mask_idx += 1
+                            mask_idx += 1
 
     def mask_remaining_params(self):
         """
@@ -128,19 +149,21 @@ class PackNet:
         """
         mask_idx = 0
         mask = []
-        for name, param_layer in self.model.named_parameters():
-            if 'bias' not in name:
+        for mod in self.model.children():
+            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                for name, param_layer in mod.named_parameters():
+                    if 'bias' not in name:
 
-                # Get mask of weights from previous tasks
-                prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
-                for task in self.masks:
-                    prev_mask |= task[mask_idx]
+                        # Get mask of weights from previous tasks
+                        prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
+                        for task in self.masks:
+                            prev_mask |= task[mask_idx]
 
-                # Create mask of remaining parameters
-                layer_mask = ~prev_mask
-                mask.append(layer_mask)
+                        # Create mask of remaining parameters
+                        layer_mask = ~prev_mask
+                        mask.append(layer_mask)
 
-                mask_idx += 1
+                        mask_idx += 1
         self.masks.append(mask)
 
     def save_final_state(self, PATH='model_weights.pth'):

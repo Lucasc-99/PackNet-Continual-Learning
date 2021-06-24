@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from src.nets import MnistClassifier
+from src.nets import MnistClassifier, SequentialClassifier
 from src.packnet import PackNet
 
 transform = transforms.Compose([transforms.ToTensor(),
@@ -84,6 +84,7 @@ for i, loader in enumerate(trainloaders):
             sgd_optim.step()
 
     p_net.fix_biases()  # Fix biases after first task
+    p_net.fix_batch_norm()  # Fix batch norm mean, var, and params
     p_net.next_task()
 
 p_net.save_final_state()  # Save the final state of the model after training

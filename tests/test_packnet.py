@@ -3,7 +3,7 @@ Tests for nets.py and packnet.py
 """
 from torch import nn
 
-from src.nets import SmallerClassifier
+from src.nets import SmallerClassifier, SequentialClassifier, MnistClassifier
 from src.packnet import PackNet
 import torch
 import torchvision.transforms as transforms
@@ -61,8 +61,5 @@ def test_fine_tune_mask():
     p_net.fine_tune_mask()
 
 
-test_prune()
-
-test_fine_tune_mask()
 
 # can't get pytest to run on my conda env at the moment :(
