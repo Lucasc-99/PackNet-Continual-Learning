@@ -1,3 +1,7 @@
+"""
+Re-implementation of packnet continual learning method
+"""
+
 import torch
 from torch import nn
 
