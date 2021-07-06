@@ -9,13 +9,9 @@ from sequoia import Method, TaskIncrementalSetting
 
 
 class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
-    ...  # Your code here.
-
+    
     def fit(self, train_env, valid_env):
         # Train your model however you want here.
-
-
-
         self.trainer.fit(
             self.model,
             train_dataloader=train_env,
