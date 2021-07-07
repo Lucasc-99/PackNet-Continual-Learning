@@ -9,7 +9,7 @@ view /scritps/packnet_mnist_cl.py for example usage
 
 view original paper and code at: https://arxiv.org/abs/1711.05769
 
-TODO: Show results here!
+TODO: Show results!
 
 
 
