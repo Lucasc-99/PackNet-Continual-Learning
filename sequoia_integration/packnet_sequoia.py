@@ -2,33 +2,85 @@
 Wrapper for PackNet integration into the Sequoia Research Tree Library
 """
 
-
 from src.packnet import PackNet
 from src.nets import MnistClassifier
 from sequoia import Method, TaskIncrementalSetting
-
+from torch import optim
+from tqdm import tqdm
+import torch.nn as nn
 
 class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
-    
+
+    def __init__(self, model, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2):
+        self.model = model
+        self.p_net = PackNet(self.model)
+        self.N_TRAIN = N_TRAIN_EPOCH
+        self.N_TUNE = N_FINE_TUNE_EPOCH
+
     def fit(self, train_env, valid_env):
-        # Train your model however you want here.
-        self.trainer.fit(
-            self.model,
-            train_dataloader=train_env,
-            val_dataloaders=valid_env,
-        )
+        # can i assume all of these samples are of the same task?
+        # can i just iterate these parameters like train/test loaders?
+
+        # how do i separate training and fine tuning?
+
+        LR = 0.01
+        loss = nn.NLLLoss()
+
+        # Train
+        sgd_optim = optim.SGD(self.model.parameters(), lr=LR)  # Recreate optimizer on task switch
+        for epoch in range(self.N_TRAIN):
+            for img, cl in tqdm(zip(train_env, valid_env)):
+                self.model.zero_grad()
+                l = loss(self.model(img), cl)
+                l.backward()
+                self.p_net.training_mask()  # Zero grad previously fixed weights
+                sgd_optim.step()
+
+        self.p_net.prune(prune_quantile=.7)
+
+        sgd_optim = optim.SGD(self.model.parameters(), lr=LR)
+
+        # Fine-Tune
+        for epoch in range():
+            for img, cl in tqdm(zip(train_env, valid_env)):
+                self.model.zero_grad()
+                l = loss(self.model(img), cl)
+                l.backward()
+                self.p_net.fine_tune_mask()  # Zero grad for weights not being fine-tuned
+                sgd_optim.step()
+
+        self.p_net.fix_biases()  # Fix biases after first task
+        self.p_net.fix_batch_norm()  # Fix batch norm mean, var, and params
+
+        self.p_net.save_final_state()  # Save the final state of the model after training
 
     def get_actions(self,
                     observations,
                     observation_space):
-        # Return an "Action" (prediction) for the given observations.
-        # Each Setting has its own Observations, Actions and Rewards types,
-        # which are based on those of their parents.
-        return self.model.predict(observations.x)
+
+        # (again) can I just assume that these observations are all of the same task
+
+        pass
 
     def on_task_switch(self, task_id):
-        # This method gets called if task boundaries are known in the current
-        # setting. Furthermore, if task labels are available, task_id will be
-        # the index of the new task. If not, task_id will be None.
-        # For example, you could do something like this:
-        self.model.current_output_head = self.model.output_heads[task_id]
+
+        # if training
+        # self.p_net.next_task()
+
+        # if testing
+        # self.pnet.load_final_state()
+        # self.pnet.apply_eval_mask()
+        # self.pnet.current_task = task_id
+        pass
+
+
+
+setting = TaskIncrementalSetting(
+    dataset="mnist",
+    increment=2
+)
+
+m = MnistClassifier()
+my_method = PackNetMethod(model=m)
+results = setting.apply(my_method)
+results.make_plots()

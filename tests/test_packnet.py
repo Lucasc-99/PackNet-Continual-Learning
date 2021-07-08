@@ -46,20 +46,3 @@ def test_prune():
     assert total_masked < 17335  # make sure we havent masked all the parameters
     assert len(p_net.masks) != 0
 
-
-def test_fine_tune_mask():
-    test_model = SmallerClassifier()
-    p_net = PackNet(model=test_model)
-    test_model.zero_grad()
-    p_net.prune(prune_quantile=.9)
-    for img, cl in trainloader:
-        test_model.zero_grad()
-        l = loss(test_model(img), cl)
-        l.backward()
-        break
-
-    p_net.fine_tune_mask()
-
-
-
-# can't get pytest to run on my conda env at the moment :(
