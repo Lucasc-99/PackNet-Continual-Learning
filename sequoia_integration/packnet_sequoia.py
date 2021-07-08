@@ -41,7 +41,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         sgd_optim = optim.SGD(self.model.parameters(), lr=LR)
 
         # Fine-Tune
-        for epoch in range():
+        for epoch in range(self.N_TUNE):
             for img, cl in tqdm(zip(train_env, valid_env)):
                 self.model.zero_grad()
                 l = loss(self.model(img), cl)
