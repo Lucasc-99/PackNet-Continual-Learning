@@ -9,15 +9,18 @@ from torch import optim
 from tqdm import tqdm
 import torch.nn as nn
 
+
 class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
 
     def __init__(self, model, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2):
+        self.mode = 'train'
         self.model = model
         self.p_net = PackNet(self.model)
         self.N_TRAIN = N_TRAIN_EPOCH
         self.N_TUNE = N_FINE_TUNE_EPOCH
 
     def fit(self, train_env, valid_env):
+        print("Fit called")
         # can i assume all of these samples are of the same task?
         # can i just iterate these parameters like train/test loaders?
 
@@ -29,9 +32,9 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         # Train
         sgd_optim = optim.SGD(self.model.parameters(), lr=LR)  # Recreate optimizer on task switch
         for epoch in range(self.N_TRAIN):
-            for img, cl in tqdm(zip(train_env, valid_env)):
+            for observation, reward in tqdm(train_env):
                 self.model.zero_grad()
-                l = loss(self.model(img), cl)
+                l = loss(self.model(observation.x), reward.y)
                 l.backward()
                 self.p_net.training_mask()  # Zero grad previously fixed weights
                 sgd_optim.step()
@@ -42,9 +45,9 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
 
         # Fine-Tune
         for epoch in range(self.N_TUNE):
-            for img, cl in tqdm(zip(train_env, valid_env)):
+            for observation, reward in tqdm(train_env):
                 self.model.zero_grad()
-                l = loss(self.model(img), cl)
+                l = loss(self.model(observation.x), reward.y)
                 l.backward()
                 self.p_net.fine_tune_mask()  # Zero grad for weights not being fine-tuned
                 sgd_optim.step()
@@ -59,20 +62,19 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
                     observation_space):
 
         # (again) can I just assume that these observations are all of the same task
-
+        print("Get actions Called")
+        print("")
         pass
 
     def on_task_switch(self, task_id):
 
-        # if training
-        # self.p_net.next_task()
+        if self.mode == 'train' and len(self.p_net.masks) > 0:
+            self.p_net.next_task()
 
-        # if testing
-        # self.pnet.load_final_state()
-        # self.pnet.apply_eval_mask()
-        # self.pnet.current_task = task_id
-        pass
-
+        elif self.mode == 'test':
+            self.p_net.load_final_state()
+            self.p_net.apply_eval_mask(task_idx=task_id)
+            self.p_net.current_task = task_id
 
 
 setting = TaskIncrementalSetting(
@@ -80,7 +82,6 @@ setting = TaskIncrementalSetting(
     increment=2
 )
 
-m = MnistClassifier()
+m = MnistClassifier(input_channels=3)
 my_method = PackNetMethod(model=m)
 results = setting.apply(my_method)
-results.make_plots()
