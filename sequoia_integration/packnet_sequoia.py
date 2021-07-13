@@ -62,9 +62,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
                     observation_space):
 
         # (again) can I just assume that these observations are all of the same task
-        print("Get actions Called")
-        print("")
-        pass
+        raise NotImplementedError
 
     def on_task_switch(self, task_id):
 
