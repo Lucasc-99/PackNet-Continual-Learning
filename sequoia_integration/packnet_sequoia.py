@@ -13,10 +13,11 @@ import torch
 
 class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
 
-    def __init__(self, model, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2):
+    def __init__(self, model, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2, prune_quantile=.7):
         self.mode = 'train'
         self.model = model
         self.p_net = PackNet(self.model)
+        self.p_quantile = prune_quantile
         self.N_TRAIN = N_TRAIN_EPOCH
         self.N_TUNE = N_FINE_TUNE_EPOCH
         self.p_net.current_task = -1  # Because Sequoia calls task switch before first fit
@@ -41,7 +42,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
                 self.p_net.training_mask()  # Zero grad previously fixed weights
                 sgd_optim.step()
 
-        self.p_net.prune(prune_quantile=.7)
+        self.p_net.prune(prune_quantile=self.p_quantile)
 
         sgd_optim = optim.SGD(self.model.parameters(), lr=LR)
 
@@ -84,7 +85,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
 
 setting = TaskIncrementalSetting(
     dataset="mnist",
-    increment=2
+    increment=2  # ?
 )
 
 m = MnistClassifier(input_channels=3)
