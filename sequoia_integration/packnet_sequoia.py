@@ -60,9 +60,13 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
     def get_actions(self,
                     observations,
                     observation_space):
-
-        # (again) can I just assume that these observations are all of the same task
-        raise NotImplementedError
+        """
+        Assume that every observation in observations has the same task
+        """
+        print("GET ACTIONS")
+        assert observations.task_labels[0] == observations.task_labels[1]
+        assert self.p_net.current_task == observations.task_labels[0]
+        return self.model(observations.x)
 
     def on_task_switch(self, task_id):
 
