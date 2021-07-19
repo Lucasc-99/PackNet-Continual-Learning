@@ -8,6 +8,7 @@ from sequoia import Method, TaskIncrementalSetting
 from torch import optim
 from tqdm import tqdm
 import torch.nn as nn
+import torch
 
 
 class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
@@ -18,6 +19,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         self.p_net = PackNet(self.model)
         self.N_TRAIN = N_TRAIN_EPOCH
         self.N_TUNE = N_FINE_TUNE_EPOCH
+        self.p_net.current_task = -1  # Because Sequoia calls task switch before first fit
 
     def fit(self, train_env, valid_env):
         print("Fit called")
@@ -63,20 +65,21 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         """
         Assume that every observation in observations has the same task
         """
-        print("GET ACTIONS")
-        assert observations.task_labels[0] == observations.task_labels[1]
-        assert self.p_net.current_task == observations.task_labels[0]
-        return self.model(observations.x)
+        print(f"GET ACTIONS: task label=={observations.task_labels[0]}, current_task=={self.p_net.current_task}")
+
+        '''assert observations.task_labels[0] == observations.task_labels[-1]
+        assert self.p_net.current_task == observations.task_labels[0]'''
+
+        with torch.no_grad():
+            y_pred = torch.argmax(self.model(observations.x), dim=-1)
+        return self.target_setting.Actions(y_pred)
 
     def on_task_switch(self, task_id):
-
-        if self.mode == 'train' and len(self.p_net.masks) > 0:
-            self.p_net.next_task()
-
-        elif self.mode == 'test':
+        print("TASK SWITCH", task_id, len(self.p_net.masks))
+        if len(self.p_net.masks) > task_id:
             self.p_net.load_final_state()
             self.p_net.apply_eval_mask(task_idx=task_id)
-            self.p_net.current_task = task_id
+        self.p_net.current_task = task_id
 
 
 setting = TaskIncrementalSetting(
