@@ -66,7 +66,6 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         """
         Assume that every observation in observations has the same task
         """
-        print(f"GET ACTIONS: task label=={observations.task_labels[0]}, current_task=={self.p_net.current_task}")
 
         '''assert observations.task_labels[0] == observations.task_labels[-1]
         assert self.p_net.current_task == observations.task_labels[0]'''
@@ -76,7 +75,6 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         return self.target_setting.Actions(y_pred)
 
     def on_task_switch(self, task_id):
-        print("TASK SWITCH", task_id, len(self.p_net.masks))
         if len(self.p_net.masks) > task_id:
             self.p_net.load_final_state()
             self.p_net.apply_eval_mask(task_idx=task_id)
