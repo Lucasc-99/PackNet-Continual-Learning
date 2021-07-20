@@ -23,14 +23,13 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         self.p_net.current_task = -1  # Because Sequoia calls task switch before first fit
 
     def fit(self, train_env, valid_env):
-        print("Fit called")
         # can i assume all of these samples are of the same task?
         # can i just iterate these parameters like train/test loaders?
 
         # how do i separate training and fine tuning?
 
         LR = 0.01
-        loss = nn.NLLLoss()
+        loss = nn.CrossEntropyLoss()
 
         # Train
         sgd_optim = optim.SGD(self.model.parameters(), lr=LR)  # Recreate optimizer on task switch
