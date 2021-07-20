@@ -4,7 +4,8 @@ Wrapper for PackNet integration into the Sequoia Research Tree Library
 
 from packnet.packnet import PackNet
 from packnet.nets import MnistClassifier
-from sequoia import Method, TaskIncrementalSetting
+from sequoia import Method
+from sequoia.settings.sl import TaskIncrementalSLSetting
 from torch import optim
 from tqdm import tqdm
 import torch.nn as nn
@@ -13,7 +14,7 @@ import torch
 # from sequoia.methods import BaseMethod
 
 
-class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
+class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
     def __init__(self, model: nn.Module, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2, prune_quantile=.7, LR: float = 0.01):
         self.mode = 'train'
         self.model = model
@@ -25,15 +26,20 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         self.p_net.current_task = -1  # Because Sequoia calls task switch before first fit
         self.loss = nn.CrossEntropyLoss()
 
+    def configure(self, setting: TaskIncrementalSLSetting):
+        # TODO: Use this to configure the method before it gets trained/evaluated on the given Setting.
+        nb_tasks = setting.nb_tasks
+        ...
+
     def fit(self, train_env, valid_env):
         # can i assume all of these samples are of the same task?
         # can i just iterate these parameters like train/test loaders?
 
         # how do i separate training and fine tuning?
 
-
         # Train
-        sgd_optim = optim.SGD(self.model.parameters(), lr=self.LR)  # Recreate optimizer on task switch
+        # Recreate optimizer on task switch
+        sgd_optim = optim.SGD(self.model.parameters(), lr=self.LR)
         for epoch in range(self.N_TRAIN):
             for observation, reward in tqdm(train_env):
                 self.model.zero_grad()
@@ -82,11 +88,13 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         self.p_net.current_task = task_id
 
 
-setting = TaskIncrementalSetting(
-    dataset="mnist",
-    increment=2
-)
+if __name__ == "__main__":
+    setting = TaskIncrementalSLSetting(
+        dataset="mnist",
+        increment=2
+    )
 
-m = MnistClassifier(input_channels=3)
-my_method = PackNetMethod(model=m)
-results = setting.apply(my_method)
+    m = MnistClassifier(input_channels=3)
+    my_method = PackNetMethod(model=m)
+    results = setting.apply(my_method)
+    # results.make_plots()

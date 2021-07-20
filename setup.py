@@ -25,7 +25,7 @@ setuptools.setup(
     ],
     entry_points={
         "Method": [
-            "cndpm = cn_dpm.cndpm_method:CNDPM",
+            "packnet = packnet.packnet_method:PackNetMethod",
         ],
     },
     python_requires='>=3.7',

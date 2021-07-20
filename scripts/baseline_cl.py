@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 from packnet.nets import MnistClassifier
-
+import os
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),
                                 ])
@@ -17,24 +17,25 @@ transform = transforms.Compose([transforms.ToTensor(),
 # Datasets
 #
 print("Downloading Datasets")
+DATA_DIR = os.environ.get("DATA_DIR", "./data")
 trainloaders = []
 testloaders = []
 
 # MNIST
-train = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-test = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+train = datasets.MNIST(root=DATA_DIR, train=True, download=True, transform=transform)
+test = datasets.MNIST(root=DATA_DIR, train=False, download=True, transform=transform)
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
 # FashionMNIST
-train = datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform)
-test = datasets.FashionMNIST(root='./data', train=False, download=True, transform=transform)
+train = datasets.FashionMNIST(root=DATA_DIR, train=True, download=True, transform=transform)
+test = datasets.FashionMNIST(root=DATA_DIR, train=False, download=True, transform=transform)
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
 # KMNIST
-train = datasets.KMNIST(root='./data', train=True, download=True, transform=transform)
-test = datasets.KMNIST(root='./data', train=False, download=True, transform=transform)
+train = datasets.KMNIST(root=DATA_DIR, train=True, download=True, transform=transform)
+test = datasets.KMNIST(root=DATA_DIR, train=False, download=True, transform=transform)
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
