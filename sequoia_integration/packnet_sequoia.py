@@ -85,7 +85,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
 
 setting = TaskIncrementalSetting(
     dataset="mnist",
-    increment=2  # ?
+    increment=2
 )
 
 m = MnistClassifier(input_channels=3)
