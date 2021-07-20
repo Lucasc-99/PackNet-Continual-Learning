@@ -2,25 +2,28 @@
 Wrapper for PackNet integration into the Sequoia Research Tree Library
 """
 
-from src.packnet import PackNet
-from src.nets import MnistClassifier
+from packnet.packnet import PackNet
+from packnet.nets import MnistClassifier
 from sequoia import Method, TaskIncrementalSetting
 from torch import optim
 from tqdm import tqdm
 import torch.nn as nn
 import torch
+# Eventually:
+# from sequoia.methods import BaseMethod
 
 
 class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
-
-    def __init__(self, model, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2, prune_quantile=.7):
+    def __init__(self, model: nn.Module, N_TRAIN_EPOCH=5, N_FINE_TUNE_EPOCH=2, prune_quantile=.7, LR: float = 0.01):
         self.mode = 'train'
         self.model = model
         self.p_net = PackNet(self.model)
         self.p_quantile = prune_quantile
         self.N_TRAIN = N_TRAIN_EPOCH
         self.N_TUNE = N_FINE_TUNE_EPOCH
+        self.LR = LR
         self.p_net.current_task = -1  # Because Sequoia calls task switch before first fit
+        self.loss = nn.CrossEntropyLoss()
 
     def fit(self, train_env, valid_env):
         # can i assume all of these samples are of the same task?
@@ -28,15 +31,14 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
 
         # how do i separate training and fine tuning?
 
-        LR = 0.01
-        loss = nn.CrossEntropyLoss()
 
         # Train
-        sgd_optim = optim.SGD(self.model.parameters(), lr=LR)  # Recreate optimizer on task switch
+        sgd_optim = optim.SGD(self.model.parameters(), lr=self.LR)  # Recreate optimizer on task switch
         for epoch in range(self.N_TRAIN):
             for observation, reward in tqdm(train_env):
                 self.model.zero_grad()
-                l = loss(self.model(observation.x), reward.y)
+                logits = self.model(observation.x)
+                l = self.loss(logits, reward.y)
                 l.backward()
                 self.p_net.training_mask()  # Zero grad previously fixed weights
                 sgd_optim.step()
@@ -49,7 +51,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSetting):
         for epoch in range(self.N_TUNE):
             for observation, reward in tqdm(train_env):
                 self.model.zero_grad()
-                l = loss(self.model(observation.x), reward.y)
+                l = self.loss(self.model(observation.x), reward.y)
                 l.backward()
                 self.p_net.fine_tune_mask()  # Zero grad for weights not being fine-tuned
                 sgd_optim.step()

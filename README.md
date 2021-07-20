@@ -1,5 +1,4 @@
-
-A generalized re-implementation of the PackNet Continual learning method
+# A generalized re-implementation of the PackNet Continual learning method
 
 (PyTorch and Python 3+)
 
