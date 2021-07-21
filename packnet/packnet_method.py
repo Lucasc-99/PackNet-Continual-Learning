@@ -55,7 +55,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
 
         self.p_net.prune(prune_quantile=self.p_quantile)
 
-        sgd_optim = optim.SGD(self.model.parameters(), lr=LR)
+        sgd_optim = optim.SGD(self.model.parameters(), lr=self.LR)
 
         # Fine-Tune
         for epoch in range(self.N_TUNE):
