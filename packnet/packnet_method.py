@@ -28,8 +28,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
 
     def configure(self, setting: TaskIncrementalSLSetting):
         # TODO: Use this to configure the method before it gets trained/evaluated on the given Setting.
-        nb_tasks = setting.nb_tasks
-        ...
+        self.nb_tasks = setting.nb_tasks
 
     def fit(self, train_env, valid_env):
         # can i assume all of these samples are of the same task?
@@ -39,12 +38,17 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
 
         # Train
         # Recreate optimizer on task switch
+
+        # if torch lightning module, just use .training_step()
+
         sgd_optim = optim.SGD(self.model.parameters(), lr=self.LR)
         for epoch in range(self.N_TRAIN):
             for observation, reward in tqdm(train_env):
+                # if torch lightning module, just use .training_step()
                 self.model.zero_grad()
                 logits = self.model(observation.x)
                 l = self.loss(logits, reward.y)
+
                 l.backward()
                 self.p_net.training_mask()  # Zero grad previously fixed weights
                 sgd_optim.step()
