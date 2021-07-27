@@ -27,7 +27,7 @@ def test_prune():
     p_net = PackNet(model=test_model)
     p_net.prune(prune_quantile=.7)
     p_net.fix_biases()
-    p_net.next_task()
+    p_net.current_task += 1
 
     total_masked = 0
     for task in p_net.masks:

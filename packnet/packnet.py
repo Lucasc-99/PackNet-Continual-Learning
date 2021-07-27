@@ -4,17 +4,17 @@ Re-implementation of packnet continual learning method
 
 import torch
 from torch import nn
+from pytorch_lightning.callbacks import Callback
 
 
-class PackNet:
+class PackNet(Callback):
 
-    def __init__(self, model):
+    def __init__(self, ):
         self.PATH = None
-        self.model = model
         self.current_task = 0
         self.masks = []  # 3-dimensions: task, layer, parameter mask
-
-    def prune(self, prune_quantile):
+        self.mode = 'train'
+    def prune(self, model, prune_quantile):
         """
         Create task-specific mask and prune least relevant weights
         :param prune_quantile: The percentage of weights to prune as a decimal
@@ -22,7 +22,7 @@ class PackNet:
         # Calculate Quantile
         all_prunable = torch.tensor([])
         mask_idx = 0
-        for mod in self.model.children():
+        for mod in model.children():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
@@ -43,7 +43,7 @@ class PackNet:
         mask_idx = 0
         mask = []  # create mask for this task
         with torch.no_grad():
-            for mod in self.model.children():
+            for mod in model.children():
                 if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
@@ -63,7 +63,7 @@ class PackNet:
 
         self.masks.append(mask)
 
-    def fine_tune_mask(self):
+    def fine_tune_mask(self, model):
         """
         Zero the gradient of pruned weights this task as well as previously fixed weights
         Apply this mask before each optimizer step during fine-tuning
@@ -71,14 +71,14 @@ class PackNet:
         assert len(self.masks) > self.current_task
 
         mask_idx = 0
-        for mod in self.model.children():
+        for mod in model.children():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
                         param_layer.grad *= self.masks[self.current_task][mask_idx]
                         mask_idx += 1
 
-    def training_mask(self):
+    def training_mask(self, model):
         """
         Zero the gradient of only fixed weights for previous tasks
         Apply this mask after .backward() and before
@@ -88,7 +88,7 @@ class PackNet:
             return
 
         mask_idx = 0
-        for mod in self.model.children():
+        for mod in model.children():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
@@ -102,27 +102,27 @@ class PackNet:
 
                         mask_idx += 1
 
-    def fix_biases(self):
+    def fix_biases(self, model):
         """
         Fix the gradient of bias parameters
         """
-        for mod in self.model.children():
+        for mod in model.children():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' in name:
                         param_layer.requires_grad = False
 
-    def fix_batch_norm(self):
+    def fix_batch_norm(self, model):
         """
         Fix batch norm gain, bias, running mean and variance
         """
-        for mod in self.model.children():
+        for mod in model.children():
             if isinstance(mod, nn.BatchNorm2d):
                 mod.affine = False
                 for param_layer in mod.parameters():
                     param_layer.requires_grad = False
 
-    def apply_eval_mask(self, task_idx):
+    def apply_eval_mask(self, model, task_idx):
         """
         Revert to network state for a specific task
         :param task_idx: the task id to be evaluated (0 - > n_tasks)
@@ -132,7 +132,7 @@ class PackNet:
 
         mask_idx = 0
         with torch.no_grad():
-            for mod in self.model.children():
+            for mod in model.children():
                 if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
@@ -147,13 +147,13 @@ class PackNet:
 
                             mask_idx += 1
 
-    def mask_remaining_params(self):
+    def mask_remaining_params(self, model):
         """
         Create mask for remaining parameters
         """
         mask_idx = 0
         mask = []
-        for mod in self.model.children():
+        for mod in model.children():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
@@ -170,34 +170,32 @@ class PackNet:
                         mask_idx += 1
         self.masks.append(mask)
 
-    def save_final_state(self, PATH='model_weights.pth'):
+    def save_final_state(self, model, PATH='model_weights.pth'):
         """
         Save the final weights of the model after training
+        :param model: pl_module
         :param PATH: The path to weights file
         """
         self.PATH = PATH
-        torch.save(self.model.state_dict(), PATH)
+        torch.save(model.state_dict(), PATH)
 
-    def load_final_state(self):
+    def load_final_state(self, model):
         """
         Load the final state of the model
         """
-        self.model.load_state_dict(torch.load(self.PATH))
+        model.load_state_dict(torch.load(self.PATH))
 
-    def next_task(self):
-        """
-        Increment task
-        """
-        self.current_task += 1
+    def on_init_start(self, trainer):
+        print('trainer init')
 
-    def parameters(self):
-        """
-        Wrapper method for model.parameters()
-        """
-        return self.model.parameters()
+    def on_init_end(self, trainer):
+        print('trainer is init now')
 
-    def named_parameters(self):
-        """
-        Wrapper method for model.named_parameters()
-        """
-        return self.model.named_parameters()
+    def on_after_backward(self, trainer, pl_module):
+        if self.mode == 'train':
+            self.training_mask(pl_module)
+        elif self.mode == 'fine_tune':
+            self.fine_tune_mask(pl_module)
+
+    def on_train_end(self, trainer, pl_module):
+        self.save_final_state(pl_module)
