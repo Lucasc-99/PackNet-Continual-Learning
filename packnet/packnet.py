@@ -9,11 +9,23 @@ from pytorch_lightning.callbacks import Callback
 
 class PackNet(Callback):
 
-    def __init__(self, ):
+    def __init__(self, n_tasks, prune_instructions):
+        # Set up an array of quantiles for pruning procedure
+        if isinstance(prune_instructions, list):  # if a list is passed in
+            assert all(0 < i < 1 for i in prune_instructions)
+            self.prune_instructions = prune_instructions
+
+        else:  # if a float is passed in
+            assert 0 < prune_instructions < 1
+            self.prune_instructions = [prune_instructions] * (n_tasks - 1)
+
         self.PATH = None
         self.current_task = 0
+        self.n_tasks = n_tasks
+        self.prune_instructions = prune_instructions
         self.masks = []  # 3-dimensions: task, layer, parameter mask
         self.mode = 'train'
+
     def prune(self, model, prune_quantile):
         """
         Create task-specific mask and prune least relevant weights
