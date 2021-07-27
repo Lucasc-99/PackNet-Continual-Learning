@@ -4,9 +4,13 @@ Networks used in /scripts and /tests
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
 
 
-class MnistClassifier(nn.Module):
+class MnistClassifier(pl.LightningModule):
+    """
+    Example classifier, used in packnet_mnist_cl.py and packnet_sequoia.py
+    """
 
     def __init__(self, input_channels=1):
         super(MnistClassifier, self).__init__()
@@ -24,8 +28,14 @@ class MnistClassifier(nn.Module):
         x = torch.flatten(x, 1)
         x = F.relu(self.dense1(x))
         x = F.relu(self.dense2(x))
-        return F.log_softmax(x, dim=1)
+        return F.log_softmax(x, dim=-1)
 
+    def training_step(self, batch, batchidx):
+        x, y = batch
+        return F.cross_entropy(self(x), y)
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=0.01)
 
 class SmallerClassifier(nn.Module):
 
