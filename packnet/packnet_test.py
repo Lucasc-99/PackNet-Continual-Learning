@@ -42,6 +42,6 @@ def test_prune():
         for layer_mask in task:
             total_masked += torch.count_nonzero(layer_mask.view(-1))
     print(f"Total Masked after prune 2: {total_masked}")
-    assert total_masked < 17335  # make sure we havent masked all the parameters
+    assert total_masked < 18000  # make sure we havent masked all the parameters
     assert len(p_net.masks) != 0
 
