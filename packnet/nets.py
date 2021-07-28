@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-
+from typing import Tuple, Optional
+from sequoia.settings.sl.continual import Observations, Rewards, Environment
 
 class MnistClassifier(pl.LightningModule):
     """
@@ -18,6 +19,7 @@ class MnistClassifier(pl.LightningModule):
         self.conv1 = nn.Conv2d(in_channels=input_channels, out_channels=10, kernel_size=5)
         self.dense1 = nn.Linear(in_features=5760, out_features=2000)
         self.dense2 = nn.Linear(in_features=2000, out_features=10)
+        self.trainer: pl.Trainer
 
     def forward(self, x):
         """
@@ -31,9 +33,24 @@ class MnistClassifier(pl.LightningModule):
 
         return F.log_softmax(x, dim=-1)  # Apply log softmax and return
 
-    def training_step(self, batch, batchidx):
-        x, y = batch
-        return F.nll_loss(self(x), y)
+    def training_step(self, batch: Tuple[Observations, Optional[Rewards]], batch_idx):
+        observations, rewards = batch
+        x = observations.x
+
+        logits = self(x)
+        y_pred = logits.argmax(-1)
+        if rewards is None:
+            # NOTE: See the pl_example.py in `sequoia/examples/basic/pl_example.py` for
+            # more info about when this might happen.
+            environment: Environment = self.trainer.request_dataloader("train")
+            rewards = environment.send(y_pred)
+
+        assert rewards is not None
+        y = rewards.y
+        accuracy = (y_pred == y).int().sum().div(len(y))
+        self.log("train/accuracy", accuracy, prog_bar=True)
+
+        return F.nll_loss(logits, y)
 
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=0.01)

@@ -4,9 +4,9 @@ from sequoia.settings.sl import TaskIncrementalSLSetting
 
 
 setting = TaskIncrementalSLSetting(
-        dataset="mnist",
-        increment=2
-    )
+    dataset="mnist",
+    increment=2
+)
 
 m = MnistClassifier(input_channels=3)
 my_method = PackNetMethod(model=m, prune_instructions=.5, epoch_split=(5, 2))

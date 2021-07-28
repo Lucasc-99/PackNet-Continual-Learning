@@ -13,16 +13,20 @@ import torch
 
 
 class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
-    def __init__(self, model, prune_instructions, epoch_split, n_tasks=None):
+    def __init__(self, model, prune_instructions, epoch_split):
         self.model = model
-        self.p_net = PackNet(n_tasks=n_tasks,  # This gets set in configure
-                             prune_instructions=prune_instructions,
-                             epoch_split=epoch_split)
+        self.prune_instructions = prune_instructions
+        self.epoch_split = epoch_split
+        self.p_net: PackNet  # This gets set in configure
 
-        self.p_net.current_task = -1  # Because Sequoia calls task switch before first fit
-
-    def configure(self, s):
-        self.p_net.n_tasks = s.nb_tasks
+    def configure(self, setting: TaskIncrementalSLSetting):
+        self.p_net = PackNet(
+            n_tasks=setting.nb_tasks,  
+            prune_instructions=self.prune_instructions,
+            epoch_split=self.epoch_split,
+        )
+        # Because Sequoia calls task switch before first fit
+        self.p_net.current_task = -1
         self.p_net.config_instructions()
 
     def fit(self, train_env, valid_env):
@@ -31,9 +35,10 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
 
     def get_actions(self,
                     observations,
-                    observation_space):
+                    action_space):
         with torch.no_grad():
-            y_pred = torch.argmax(self.model(observations.x), dim=-1)
+            logits = self.model(observations.x.to(self.model.device))
+            y_pred = logits.argmax(dim=-1)
         return self.target_setting.Actions(y_pred)
 
     def on_task_switch(self, task_id):
