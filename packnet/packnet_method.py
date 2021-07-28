@@ -3,11 +3,11 @@ Wrapper for PackNet integration into the Sequoia Research Tree Library
 """
 
 from packnet.packnet import PackNet
-from packnet.nets import MnistClassifier
 from sequoia import Method
 from sequoia.settings.sl import TaskIncrementalSLSetting
 from pytorch_lightning import Trainer
 import torch
+
 # Eventually:
 # from sequoia.methods import BaseMethod
 
@@ -38,15 +38,3 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
 
     def on_task_switch(self, task_id):
         self.p_net.current_task = task_id
-
-
-if __name__ == "__main__":
-    setting = TaskIncrementalSLSetting(
-        dataset="mnist",
-        increment=2
-    )
-
-    m = MnistClassifier(input_channels=3)
-    my_method = PackNetMethod(model=m, prune_instructions=.5, epoch_split=(5, 2))
-    results = setting.apply(my_method)
-    # results.make_plots()
