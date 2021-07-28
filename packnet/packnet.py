@@ -10,20 +10,16 @@ from pytorch_lightning.callbacks import Callback
 class PackNet(Callback):
 
     def __init__(self, n_tasks, prune_instructions, epoch_split):
-        # Set up an array of quantiles for pruning procedure
-        if isinstance(prune_instructions, list):  # if a list is passed in
-            assert all(0 < i < 1 for i in prune_instructions)
-            self.prune_instructions = prune_instructions
 
-        else:  # if a float is passed in
-            assert 0 < prune_instructions < 1
-            self.prune_instructions = [prune_instructions] * (n_tasks - 1)
+        self.n_tasks = n_tasks
+        self.prune_instructions = prune_instructions
+        # Set up an array of quantiles for pruning procedure
+        if n_tasks:
+            self.config_instructions()
 
         self.PATH = None
         self.epoch_split = epoch_split
         self.current_task = 0
-        self.n_tasks = n_tasks
-        self.prune_instructions = prune_instructions
         self.masks = []  # 3-dimensions: task, layer, parameter mask
         self.mode = None
 
@@ -185,6 +181,18 @@ class PackNet(Callback):
 
     def total_epochs(self):
         return self.epoch_split[0] + self.epoch_split[1]
+
+    def config_instructions(self):
+        """
+        Create pruning instructions for this task split
+        :return: None
+        """
+        assert self.n_tasks is not None
+
+        if not isinstance(self.prune_instructions, list):  # if a list is passed in
+            assert 0 < self.prune_instructions < 1
+            self.prune_instructions = [self.prune_instructions] * (self.n_tasks - 1)
+
 
     def save_final_state(self, model, PATH='model_weights.pth'):
         """
