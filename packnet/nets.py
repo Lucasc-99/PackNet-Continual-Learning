@@ -27,17 +27,18 @@ class MnistClassifier(pl.LightningModule):
         x = F.relu(self.conv1(x))
         x = torch.flatten(x, 1)
         x = F.relu(self.dense1(x))
-        x = F.relu(self.dense2(x))
-        return F.log_softmax(x, dim=-1)
+        x = F.relu(self.dense2(x))  # Final logits
+
+        return F.log_softmax(x, dim=-1)  # Apply log softmax and return
 
     def training_step(self, batch, batchidx):
         x, y = batch
-        return F.cross_entropy(self(x), y)
+        return F.nll_loss(self(x), y)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.01)
+        return torch.optim.SGD(self.parameters(), lr=0.01)
 
-class SmallerClassifier(nn.Module):
+class SmallerClassifier(pl.LightningModule):
 
     def __init__(self, input_channels=1):
         super(SmallerClassifier, self).__init__()
@@ -56,8 +57,15 @@ class SmallerClassifier(nn.Module):
         x = F.relu(self.dense1(x))
         return F.log_softmax(x, dim=1)
 
+    def training_step(self, batch, batchidx):
+        x, y = batch
+        return F.nll_loss(self(x), y)
 
-class SequentialClassifier(nn.Module):
+    def configure_optimizers(self):
+        return torch.optim.SGD(self.parameters(), lr=0.01)
+
+
+class SequentialClassifier(pl.LightningModule):
     """
     The purpose of this is to test different module structures
     """
@@ -93,3 +101,10 @@ class SequentialClassifier(nn.Module):
 
     def forward(self, x):
         return self.model_classifier(self.model_encoder(x))
+
+    def training_step(self, batch, batchidx):
+        x, y = batch
+        return F.nll_loss(self(x), y)
+
+    def configure_optimizers(self):
+        return torch.optim.SGD(self.parameters(), lr=0.01)

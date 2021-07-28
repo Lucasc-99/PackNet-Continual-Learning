@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import Callback
 
 class PackNet(Callback):
 
-    def __init__(self, n_tasks, prune_instructions):
+    def __init__(self, n_tasks, prune_instructions, epoch_split):
         # Set up an array of quantiles for pruning procedure
         if isinstance(prune_instructions, list):  # if a list is passed in
             assert all(0 < i < 1 for i in prune_instructions)
@@ -20,11 +20,12 @@ class PackNet(Callback):
             self.prune_instructions = [prune_instructions] * (n_tasks - 1)
 
         self.PATH = None
+        self.epoch_split = epoch_split
         self.current_task = 0
         self.n_tasks = n_tasks
         self.prune_instructions = prune_instructions
         self.masks = []  # 3-dimensions: task, layer, parameter mask
-        self.mode = 'train'
+        self.mode = None
 
     def prune(self, model, prune_quantile):
         """
@@ -182,6 +183,9 @@ class PackNet(Callback):
                         mask_idx += 1
         self.masks.append(mask)
 
+    def total_epochs(self):
+        return self.epoch_split[0] + self.epoch_split[1]
+
     def save_final_state(self, model, PATH='model_weights.pth'):
         """
         Save the final weights of the model after training
@@ -197,17 +201,31 @@ class PackNet(Callback):
         """
         model.load_state_dict(torch.load(self.PATH))
 
-    def on_init_start(self, trainer):
-        print('trainer init')
-
     def on_init_end(self, trainer):
-        print('trainer is init now')
+        self.mode = 'train'
 
     def on_after_backward(self, trainer, pl_module):
+
         if self.mode == 'train':
             self.training_mask(pl_module)
+
         elif self.mode == 'fine_tune':
             self.fine_tune_mask(pl_module)
 
-    def on_train_end(self, trainer, pl_module):
-        self.save_final_state(pl_module)
+    def on_epoch_end(self, trainer, pl_module):
+
+        if pl_module.current_epoch == self.epoch_split[0] - 1:  # Fine tune
+            self.mode = 'fine_tune'
+            if self.current_task == self.n_tasks - 1:
+                self.mask_remaining_params(pl_module)
+            else:
+                self.prune(
+                    model=pl_module,
+                    prune_quantile=self.prune_instructions[self.current_task])
+
+        elif pl_module.current_epoch == self.total_epochs() - 1:
+            self.fix_biases(pl_module)  # Fix biases after first task
+            self.fix_batch_norm(pl_module)  # Fix batch norm mean, var, and params
+            self.current_task += 1
+            self.save_final_state(pl_module)
+            self.mode = 'train'

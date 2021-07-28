@@ -11,6 +11,8 @@ from tqdm import tqdm
 from packnet.nets import MnistClassifier, SequentialClassifier, SmallerClassifier
 from packnet.packnet import PackNet
 
+from pytorch_lightning import Trainer
+
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5,), (0.5,)),
                                 ])
@@ -40,14 +42,15 @@ test = datasets.KMNIST(root='./data', train=False, download=True, transform=tran
 trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=True))
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
-test_model = MnistClassifier()
-p_net = PackNet(model=test_model)
+# Init model
+test_model = SmallerClassifier()
 
-LR = .01
-N_TRAIN_EPOCH = 5
-N_FINE_TUNE_EPOCH = 2
-loss = nn.NLLLoss()
-sgd_optim = optim.SGD(test_model.parameters(), lr=LR)
+# Init
+train_epochs = 5
+tune_epochs = 2
+p_net = PackNet(n_tasks=3,
+                prune_instructions=[.7, .7],
+                epoch_split=(train_epochs, tune_epochs))
 
 
 #
@@ -55,39 +58,8 @@ sgd_optim = optim.SGD(test_model.parameters(), lr=LR)
 #
 print("Training Model")
 for i, loader in enumerate(trainloaders):
-    # Train
-    sgd_optim = optim.SGD(test_model.parameters(), lr=LR)  # Recreate optimizer on task switch
-    for epoch in range(N_TRAIN_EPOCH):
-        for img, cl in tqdm(loader):
-            test_model.zero_grad()
-            l = loss(test_model(img), cl)
-            l.backward()
-            p_net.training_mask()  # Zero grad previously fixed weights
-            sgd_optim.step()
-
-    if i == 0:
-        p_net.prune(prune_quantile=.7)
-    elif i == 1:
-        p_net.prune(prune_quantile=.5)
-    else:
-        p_net.mask_remaining_params()
-
-    sgd_optim = optim.SGD(test_model.parameters(), lr=LR)
-
-    # Fine-Tune
-    for epoch in range(N_FINE_TUNE_EPOCH):
-        for img, cl in tqdm(loader):
-            test_model.zero_grad()
-            l = loss(test_model(img), cl)
-            l.backward()
-            p_net.fine_tune_mask()  # Zero grad for weights not being fine-tuned
-            sgd_optim.step()
-
-    p_net.fix_biases()  # Fix biases after first task
-    p_net.fix_batch_norm()  # Fix batch norm mean, var, and params
-    p_net.next_task()
-
-p_net.save_final_state()  # Save the final state of the model after training
+    trainer = Trainer(callbacks=[p_net], max_epochs=p_net.total_epochs())
+    trainer.fit(model=test_model, train_dataloader=loader)
 
 # Test
 
@@ -96,14 +68,14 @@ print("\nTesting Model")
 accuracy = []
 for i, loader in enumerate(testloaders):
     t1 = 0
-    p_net.apply_eval_mask(task_idx=i)
+    p_net.apply_eval_mask(task_idx=i, model=test_model)
 
     for img, cl in tqdm(loader):
         pred = torch.argmax(test_model(img)[0])
         if pred != cl[0]:
             t1 += 1
 
-    p_net.load_final_state()
+    p_net.load_final_state(model=test_model)
 
     accuracy.append(1.0 - (t1 / len(loader)))
 
