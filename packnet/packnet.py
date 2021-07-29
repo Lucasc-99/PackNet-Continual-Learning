@@ -189,10 +189,10 @@ class PackNet(Callback):
         """
         assert self.n_tasks is not None
 
-        if not isinstance(self.prune_instructions, list):  # if a list is passed in
+        if not isinstance(self.prune_instructions, list):  # if a float is passed in
             assert 0 < self.prune_instructions < 1
             self.prune_instructions = [self.prune_instructions] * (self.n_tasks - 1)
-
+        assert len(self.prune_instructions) == self.n_tasks - 1, "Must give prune instructions for each task"
 
     def save_final_state(self, model, PATH='model_weights.pth'):
         """
@@ -222,7 +222,7 @@ class PackNet(Callback):
 
     def on_epoch_end(self, trainer, pl_module):
 
-        if pl_module.current_epoch == self.epoch_split[0] - 1:  # Fine tune
+        if pl_module.current_epoch == self.epoch_split[0] - 1:  # Train epochs completed
             self.mode = 'fine_tune'
             if self.current_task == self.n_tasks - 1:
                 self.mask_remaining_params(pl_module)
@@ -231,9 +231,6 @@ class PackNet(Callback):
                     model=pl_module,
                     prune_quantile=self.prune_instructions[self.current_task])
 
-        elif pl_module.current_epoch == self.total_epochs() - 1:
-            self.fix_biases(pl_module)  # Fix biases after first task
-            self.fix_batch_norm(pl_module)  # Fix batch norm mean, var, and params
-            self.current_task += 1
+        elif pl_module.current_epoch == self.total_epochs() - 1:  # Train and fine tune epochs completed
             self.save_final_state(pl_module)
             self.mode = 'train'

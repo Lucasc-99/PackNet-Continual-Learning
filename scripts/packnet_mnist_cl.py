@@ -41,7 +41,7 @@ trainloaders.append(torch.utils.data.DataLoader(train, batch_size=64, shuffle=Tr
 testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True))
 
 # Init model
-test_model = SmallerClassifier()
+test_model = MnistClassifier()
 
 # Init
 train_epochs = 5
@@ -58,6 +58,9 @@ print("Training Model")
 for i, loader in enumerate(trainloaders):
     trainer = Trainer(callbacks=[p_net], max_epochs=p_net.total_epochs())
     trainer.fit(model=test_model, train_dataloader=loader)
+    p_net.fix_biases(test_model)  # Fix biases after first task
+    p_net.fix_batch_norm(test_model)  # Fix batch norm mean, var, and params
+    p_net.current_task += 1
 
 # Test
 

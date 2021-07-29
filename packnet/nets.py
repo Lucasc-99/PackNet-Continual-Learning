@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 from typing import Tuple, Optional
 from sequoia.settings.sl.continual import Observations, Rewards, Environment
 
+
 class MnistClassifier(pl.LightningModule):
     """
     Example classifier, used in packnet_mnist_cl.py and packnet_sequoia.py
@@ -15,6 +16,40 @@ class MnistClassifier(pl.LightningModule):
 
     def __init__(self, input_channels=1):
         super(MnistClassifier, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=input_channels, out_channels=10, kernel_size=5)
+        self.dense1 = nn.Linear(in_features=5760, out_features=2000)
+        self.dense2 = nn.Linear(in_features=2000, out_features=10)
+        self.trainer: pl.Trainer
+
+    def forward(self, x):
+        """
+        :param x: 1x28x28 tensor representing MNIST image
+        :return: logits, 10 classes
+        """
+        x = F.relu(self.conv1(x))
+        x = torch.flatten(x, 1)
+        x = F.relu(self.dense1(x))
+        x = F.relu(self.dense2(x))
+
+        return F.log_softmax(x, dim=-1)  # Apply log softmax and return
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        out = self(x)
+        return F.nll_loss(out, y)
+
+    def configure_optimizers(self):
+        return torch.optim.SGD(self.parameters(), lr=0.01)
+
+
+class SequoiaClassifier(pl.LightningModule):
+    """
+    Example classifier, used in packnet_mnist_cl.py and packnet_sequoia.py
+    """
+
+    def __init__(self, input_channels=1):
+        super(SequoiaClassifier, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels=input_channels, out_channels=10, kernel_size=5)
         self.dense1 = nn.Linear(in_features=5760, out_features=2000)
@@ -54,6 +89,7 @@ class MnistClassifier(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=0.01)
+
 
 class SmallerClassifier(pl.LightningModule):
 

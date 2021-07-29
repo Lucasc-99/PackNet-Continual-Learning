@@ -32,6 +32,8 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
     def fit(self, train_env, valid_env):
         trainer = Trainer(callbacks=[self.p_net], max_epochs=self.p_net.total_epochs())
         trainer.fit(model=self.model, train_dataloader=train_env)
+        self.p_net.fix_biases(self.model)  # Fix biases after first task
+        self.p_net.fix_batch_norm(self.model)  # Fix batch norm mean, var, and params
 
     def get_actions(self,
                     observations,
@@ -42,4 +44,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
         return self.target_setting.Actions(y_pred)
 
     def on_task_switch(self, task_id):
+        if len(self.p_net.masks) > task_id:
+            self.p_net.load_final_state(model=self.model)
+            self.p_net.apply_eval_mask(task_idx=task_id, model=self.model)
         self.p_net.current_task = task_id
