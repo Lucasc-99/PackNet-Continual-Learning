@@ -2,7 +2,6 @@ from packnet.packnet_method import PackNetMethod
 from packnet.nets import MnistClassifier
 from sequoia.settings.sl import TaskIncrementalSLSetting
 
-
 setting = TaskIncrementalSLSetting(
     dataset="mnist",
     increment=2
