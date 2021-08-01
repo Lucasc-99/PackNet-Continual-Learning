@@ -42,6 +42,44 @@ class MnistClassifier(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=0.01)
 
+class SequentialMnistClassifier(pl.LightningModule):
+    """
+    Example classifier, used in packnet_mnist_cl.py and packnet_sequoia.py
+    """
+
+    def __init__(self, input_channels=1):
+        super(SequentialMnistClassifier, self).__init__()
+        self.f = nn.Sequential(
+            nn.Conv2d(in_channels=input_channels, out_channels=10, kernel_size=5),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(in_features=5760, out_features=2000),
+            nn.ReLU(),
+            nn.Linear(in_features=2000, out_features=10),
+            nn.ReLU()
+        )
+        self.trainer: pl.Trainer
+
+    def forward(self, x):
+        """
+        :param x: 1x28x28 tensor representing MNIST image
+        :return: logits, 10 classes
+        """
+        x = F.relu(self.conv1(x))
+        x = torch.flatten(x, 1)
+        x = F.relu(self.dense1(x))
+        x = F.relu(self.dense2(x))
+
+        return F.log_softmax(x, dim=-1)  # Apply log softmax and return
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        out = self(x)
+        return F.nll_loss(out, y)
+
+    def configure_optimizers(self):
+        return torch.optim.SGD(self.parameters(), lr=0.01)
+
 
 class SequoiaClassifier(pl.LightningModule):
     """
@@ -84,17 +122,17 @@ class SequoiaClassifier(pl.LightningModule):
         y = rewards.y
         accuracy = (y_pred == y).int().sum().div(len(y))
         self.log("train/accuracy", accuracy, prog_bar=True)
-
-        return F.nll_loss(logits, y)
+        loss = F.nll_loss(logits, y)
+        return loss
 
     def configure_optimizers(self):
-        return torch.optim.SGD(self.parameters(), lr=0.01)
+        return torch.optim.SGD(self.parameters(), lr=0.001)
 
 
-class SmallerClassifier(pl.LightningModule):
+class SmallerSequoiaClassifier(pl.LightningModule):
 
     def __init__(self, input_channels=1):
-        super(SmallerClassifier, self).__init__()
+        super(SmallerSequoiaClassifier, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels=input_channels, out_channels=3, kernel_size=5)
         self.norm_layer = nn.BatchNorm2d(num_features=3, affine=True)
@@ -111,8 +149,23 @@ class SmallerClassifier(pl.LightningModule):
         return F.log_softmax(x, dim=1)
 
     def training_step(self, batch, batchidx):
-        x, y = batch
-        return F.nll_loss(self(x), y)
+        observations, rewards = batch
+        x = observations.x
+
+        logits = self(x)
+        y_pred = logits.argmax(-1)
+        if rewards is None:
+            # NOTE: See the pl_example.py in `sequoia/examples/basic/pl_example.py` for
+            # more info about when this might happen.
+            environment: Environment = self.trainer.request_dataloader("train")
+            rewards = environment.send(y_pred)
+
+        assert rewards is not None
+        y = rewards.y
+        accuracy = (y_pred == y).int().sum().div(len(y))
+        self.log("train/accuracy", accuracy, prog_bar=True)
+        loss = F.nll_loss(logits, y)
+        return loss
 
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=0.01)

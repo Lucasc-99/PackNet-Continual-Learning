@@ -44,6 +44,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
         return self.target_setting.Actions(y_pred)
 
     def on_task_switch(self, task_id):
+
         if len(self.p_net.masks) > task_id:
             self.p_net.load_final_state(model=self.model)
             self.p_net.apply_eval_mask(task_idx=task_id, model=self.model)

@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import Callback
 
 class PackNet(Callback):
 
-    def __init__(self, n_tasks, prune_instructions, epoch_split):
+    def __init__(self, n_tasks=3, prune_instructions=.5, epoch_split=(3, 1)):
 
         self.n_tasks = n_tasks
         self.prune_instructions = prune_instructions
@@ -42,8 +42,9 @@ class PackNet(Callback):
                             prev_mask |= task[mask_idx]
 
                         p = param_layer.masked_select(~prev_mask)
-                        assert len(p) > 0, "No weights left to prune"
-                        all_prunable = torch.cat((all_prunable.view(-1), p), -1)
+
+                        if p is not None:
+                            all_prunable = torch.cat((all_prunable.view(-1), p), -1)
 
                         mask_idx += 1
 

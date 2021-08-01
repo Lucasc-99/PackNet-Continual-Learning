@@ -6,7 +6,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-from packnet.nets import MnistClassifier, SequentialClassifier, SmallerClassifier
+from packnet.nets import MnistClassifier, SequentialClassifier
 from packnet.packnet import PackNet
 
 from pytorch_lightning import Trainer
@@ -44,8 +44,8 @@ testloaders.append(torch.utils.data.DataLoader(test, batch_size=1, shuffle=True)
 test_model = MnistClassifier()
 
 # Init
-train_epochs = 5
-tune_epochs = 2
+train_epochs = 3
+tune_epochs = 1
 p_net = PackNet(n_tasks=3,
                 prune_instructions=[.7, .7],
                 epoch_split=(train_epochs, tune_epochs))

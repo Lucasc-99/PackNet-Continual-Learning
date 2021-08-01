@@ -3,7 +3,7 @@ Tests for nets.py and packnet.py
 """
 from torch import nn
 
-from packnet.nets import SmallerClassifier, SequentialClassifier, MnistClassifier
+from packnet.nets import SmallerSequoiaClassifier, SequentialClassifier, MnistClassifier
 from packnet.packnet import PackNet
 import torch
 import torchvision.transforms as transforms
@@ -23,10 +23,10 @@ import torchvision.datasets as datasets
 
 
 def test_prune():
-    test_model = SmallerClassifier()
-    p_net = PackNet(model=test_model)
-    p_net.prune(prune_quantile=.7)
-    p_net.fix_biases()
+    test_model = MnistClassifier()
+    p_net = PackNet()
+    p_net.prune(prune_quantile=.7, model=test_model)
+    p_net.fix_biases(model=test_model)
     p_net.current_task += 1
 
     total_masked = 0
