@@ -8,6 +8,8 @@ view /scritps/packnet_mnist_cl.py for example usage
 
 view original paper and code at: https://arxiv.org/abs/1711.05769
 
+this method is being integrated into the Sequoia Research Tree library: https://github.com/lebrice/Sequoia
+
 TODO: Show results!
 
 
