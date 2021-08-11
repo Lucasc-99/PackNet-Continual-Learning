@@ -9,7 +9,8 @@ from pytorch_lightning.callbacks import Callback
 
 class PackNet(Callback):
 
-    def __init__(self, n_tasks=3, prune_instructions=.5, epoch_split=(3, 1)):
+    def __init__(self, n_tasks=3, prune_instructions=.5,
+                 epoch_split=(3, 1)):
 
         self.n_tasks = n_tasks
         self.prune_instructions = prune_instructions
@@ -31,7 +32,7 @@ class PackNet(Callback):
         # Calculate Quantile
         all_prunable = torch.tensor([])
         mask_idx = 0
-        for mod in model.children():
+        for mod in model.modules():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
@@ -53,7 +54,7 @@ class PackNet(Callback):
         mask_idx = 0
         mask = []  # create mask for this task
         with torch.no_grad():
-            for mod in model.children():
+            for mod in model.modules():
                 if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
@@ -81,7 +82,7 @@ class PackNet(Callback):
         assert len(self.masks) > self.current_task
 
         mask_idx = 0
-        for mod in model.children():
+        for mod in model.modules():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
@@ -98,7 +99,7 @@ class PackNet(Callback):
             return
 
         mask_idx = 0
-        for mod in model.children():
+        for mod in model.modules():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
@@ -116,7 +117,7 @@ class PackNet(Callback):
         """
         Fix the gradient of bias parameters
         """
-        for mod in model.children():
+        for mod in model.modules():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' in name:
@@ -126,7 +127,7 @@ class PackNet(Callback):
         """
         Fix batch norm gain, bias, running mean and variance
         """
-        for mod in model.children():
+        for mod in model.modules():
             if isinstance(mod, nn.BatchNorm2d):
                 mod.affine = False
                 for param_layer in mod.parameters():
@@ -142,7 +143,7 @@ class PackNet(Callback):
 
         mask_idx = 0
         with torch.no_grad():
-            for mod in model.children():
+            for mod in model.modules():
                 if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
@@ -163,7 +164,7 @@ class PackNet(Callback):
         """
         mask_idx = 0
         mask = []
-        for mod in model.children():
+        for mod in model.modules():
             if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
