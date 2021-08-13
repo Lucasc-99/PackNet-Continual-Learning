@@ -1,4 +1,4 @@
-# A generalized re-implementation of the PackNet Continual learning method
+# A generalized re-implementation of the PackNet Continual learning method using Pytorch-Lightning
 
 (PyTorch and Python 3+)
 
