@@ -235,4 +235,6 @@ class PackNet(Callback):
 
         elif pl_module.current_epoch == self.total_epochs() - 1:  # Train and fine tune epochs completed
             self.save_final_state(pl_module)
+            self.fix_biases(pl_module)  # Fix biases after first task
+            self.fix_batch_norm(pl_module)  # Fix batch norm mean, var, and params
             self.mode = 'train'
