@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import Callback
 class PackNet(Callback):
 
     def __init__(self, n_tasks=3, prune_instructions=.5,
-                 epoch_split=(3, 1), prunable_types=(nn.Conv2d, nn.Linear)):
+                 epoch_split=(1, 1), prunable_types=(nn.Conv2d, nn.Linear)):
 
         self.n_tasks = n_tasks
         self.prune_instructions = prune_instructions
