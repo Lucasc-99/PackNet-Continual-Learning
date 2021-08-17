@@ -1,5 +1,5 @@
 """
-Re-implementation of packnet continual learning method
+Re-implementation of PackNet Continual Learning Method
 """
 
 import torch
@@ -10,10 +10,11 @@ from pytorch_lightning.callbacks import Callback
 class PackNet(Callback):
 
     def __init__(self, n_tasks=3, prune_instructions=.5,
-                 epoch_split=(3, 1)):
+                 epoch_split=(3, 1), prunable_types=(nn.Conv2d, nn.Linear)):
 
         self.n_tasks = n_tasks
         self.prune_instructions = prune_instructions
+        self.prunable_types = prunable_types
         # Set up an array of quantiles for pruning procedure
         if n_tasks:
             self.config_instructions()
@@ -21,8 +22,14 @@ class PackNet(Callback):
         self.PATH = None
         self.epoch_split = epoch_split
         self.current_task = 0
-        self.masks = []  # 3-dimensions: task, layer (dict), parameter mask (tensor)
+        self.masks = []  # 3-dimensions: task (list), layer (dict), parameter mask (tensor)
         self.mode = None
+
+    def prunable(self, mod):
+        for t in self.prunable_types:
+            if isinstance(mod, t):
+                return True
+        return False
 
     def prune(self, model, prune_quantile):
         """
@@ -33,7 +40,7 @@ class PackNet(Callback):
         # Calculate Quantile
         all_prunable = torch.tensor([])
         for mod_name, mod in model.named_modules():
-            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+            if self.prunable(mod):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
 
@@ -54,7 +61,7 @@ class PackNet(Callback):
         mask = {}  # create mask for this task
         with torch.no_grad():
             for mod_name, mod in model.named_modules():
-                if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                if self.prunable(mod):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
                             # get weight mask for this layer
@@ -83,7 +90,7 @@ class PackNet(Callback):
 
         mask_idx = 0
         for mod_name, mod in model.named_modules():
-            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+            if self.prunable(mod):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
                         param_layer.grad *= self.masks[self.current_task][mod_name+name]
@@ -99,7 +106,7 @@ class PackNet(Callback):
             return
 
         for mod_name, mod in model.named_modules():
-            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+            if self.prunable(mod):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
                         # get mask of weights from previous tasks
@@ -113,10 +120,10 @@ class PackNet(Callback):
 
     def fix_biases(self, model):
         """
-        Fix the gradient of bias parameters
+        Fix the gradient of prunable bias parameters
         """
         for mod in model.modules():
-            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+            if self.prunable(mod):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' in name:
                         param_layer.requires_grad = False
@@ -143,7 +150,7 @@ class PackNet(Callback):
 
         with torch.no_grad():
             for mod_name, mod in model.named_modules():
-                if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+                if self.prunable(mod):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
 
@@ -161,7 +168,7 @@ class PackNet(Callback):
         """
         mask = {}
         for mod_name, mod in model.named_modules():
-            if isinstance(mod, nn.Conv2d) or isinstance(mod, nn.Linear):
+            if self.prunable(mod):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
 
