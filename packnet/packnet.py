@@ -37,8 +37,6 @@ class PackNet(Callback):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
 
-                        # TODO: rewrite calculate quantile
-
                         # get fixed weights for this layer
                         prev_mask = torch.zeros(param_layer.size(), dtype=torch.bool, requires_grad=False)
 
