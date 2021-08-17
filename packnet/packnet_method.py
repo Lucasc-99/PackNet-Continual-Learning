@@ -32,6 +32,7 @@ class PackNetMethod(Method, target_setting=TaskIncrementalSLSetting):
     def fit(self, train_env, valid_env):
         trainer = Trainer(callbacks=[self.p_net], max_epochs=self.p_net.total_epochs())
         trainer.fit(model=self.model, train_dataloader=train_env)
+        self.p_net.save_final_state(self.model)
 
     def get_actions(self,
                     observations,
