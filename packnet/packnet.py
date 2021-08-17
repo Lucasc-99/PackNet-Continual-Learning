@@ -25,12 +25,6 @@ class PackNet(Callback):
         self.masks = []  # 3-dimensions: task (list), layer (dict), parameter mask (tensor)
         self.mode = None
 
-    def prunable(self, mod):
-        for t in self.prunable_types:
-            if isinstance(mod, t):
-                return True
-        return False
-
     def prune(self, model, prune_quantile):
         """
         Create task-specific mask and prune least relevant weights
@@ -40,7 +34,7 @@ class PackNet(Callback):
         # Calculate Quantile
         all_prunable = torch.tensor([])
         for mod_name, mod in model.named_modules():
-            if self.prunable(mod):
+            if isinstance(mod, self.prunable_types):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
 
@@ -61,7 +55,7 @@ class PackNet(Callback):
         mask = {}  # create mask for this task
         with torch.no_grad():
             for mod_name, mod in model.named_modules():
-                if self.prunable(mod):
+                if isinstance(mod, self.prunable_types):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
                             # get weight mask for this layer
@@ -90,7 +84,7 @@ class PackNet(Callback):
 
         mask_idx = 0
         for mod_name, mod in model.named_modules():
-            if self.prunable(mod):
+            if isinstance(mod, self.prunable_types):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
                         param_layer.grad *= self.masks[self.current_task][mod_name+name]
@@ -106,7 +100,7 @@ class PackNet(Callback):
             return
 
         for mod_name, mod in model.named_modules():
-            if self.prunable(mod):
+            if isinstance(mod, self.prunable_types):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
                         # get mask of weights from previous tasks
@@ -123,7 +117,7 @@ class PackNet(Callback):
         Fix the gradient of prunable bias parameters
         """
         for mod in model.modules():
-            if self.prunable(mod):
+            if isinstance(mod, self.prunable_types):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' in name:
                         param_layer.requires_grad = False
@@ -147,10 +141,9 @@ class PackNet(Callback):
 
         assert len(self.masks) > task_idx
 
-
         with torch.no_grad():
             for mod_name, mod in model.named_modules():
-                if self.prunable(mod):
+                if isinstance(mod, self.prunable_types):
                     for name, param_layer in mod.named_parameters():
                         if 'bias' not in name:
 
@@ -168,7 +161,7 @@ class PackNet(Callback):
         """
         mask = {}
         for mod_name, mod in model.named_modules():
-            if self.prunable(mod):
+            if isinstance(mod, self.prunable_types):
                 for name, param_layer in mod.named_parameters():
                     if 'bias' not in name:
 
