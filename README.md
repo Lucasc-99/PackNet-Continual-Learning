@@ -5,8 +5,6 @@ View original paper and code at: https://arxiv.org/abs/1711.05769
 
 
 view Sequoia paper and code at: https://arxiv.org/abs/2108.01005
-https://github.com/lebrice/Sequoia
-
 
 
 (PyTorch and Python 3+)
