@@ -1,8 +1,10 @@
-# A generalized re-implementation of the PackNet Continual learning method using Pytorch-Lightning, adapted for use in the Sequoia Research Tree Library
+# A Pytorch-Lightning re-implementation of PackNet
 
 
-view original paper and code at: https://arxiv.org/abs/1711.05769
+View original paper and code at: https://arxiv.org/abs/1711.05769
 
+
+This method was added to the Sequoia Research Tree
 view Sequoia paper and code at: https://arxiv.org/abs/2108.01005
 
 
