@@ -1,4 +1,4 @@
-# A Pytorch-Lightning re-implementation of PackNet
+# A Pytorch-Lightning re-implementation of PackNet: Adding Multiple Tasks to a Single Network by Iterative Pruning
 
 
 View original paper and code at: https://arxiv.org/abs/1711.05769
